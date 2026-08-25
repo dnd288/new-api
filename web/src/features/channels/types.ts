@@ -192,11 +192,21 @@ export interface ChannelTestResponse {
   }
 }
 
+export interface KeyBalanceEntry {
+  key_index: number
+  key_hint: string
+  balance: number
+  details?: Record<string, unknown>
+  error?: string
+}
+
 export interface ChannelBalanceResponse {
   success: boolean
   message?: string
   balance?: number
   currency?: string
+  details?: Record<string, unknown>
+  key_balances?: KeyBalanceEntry[]
   raw_response?: string
 }
 

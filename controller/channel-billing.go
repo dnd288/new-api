@@ -57,6 +57,8 @@ const maxAdvancedCustomBalanceResponseBytes = 256 << 10
 
 type channelBalanceResult struct {
 	Balance     float64
+	Currency    string
+	Details     map[string]any
 	RawResponse string
 }
 
@@ -132,6 +134,42 @@ type OpenRouterCreditResponse struct {
 		TotalCredits float64 `json:"total_credits"`
 		TotalUsage   float64 `json:"total_usage"`
 	} `json:"data"`
+}
+
+type Top1DataUserInfoResponse struct {
+	WalletType            string  `json:"walletType"`
+	Balance               float64 `json:"balance"`
+	SpendRatePerMin       float64 `json:"spend_rate_per_min"`
+	Status                string  `json:"status"`
+	DailyUsed             float64 `json:"daily_used"`
+	DailyLimit            float64 `json:"daily_limit"`
+	PlanRemaining         float64 `json:"plan_remaining"`
+	TopupBalance          float64 `json:"topup_balance"`
+	TotalAvailableCredits float64 `json:"total_available_credits"`
+	CreditUsed            float64 `json:"credit_used"`
+	Plan                  struct {
+		Name            string  `json:"name"`
+		ResetInSeconds  int64   `json:"reset_in_seconds"`
+		ExpiresInDays   int64   `json:"expires_in_days"`
+		ExpiresAt       string  `json:"expires_at"`
+		DailyLimit      float64 `json:"daily_limit"`
+		DailyUsed       float64 `json:"daily_used"`
+		DailyRemaining  float64 `json:"daily_remaining"`
+	} `json:"plan"`
+	Stats struct {
+		TotalRequests int64   `json:"total_requests"`
+		TotalSpending float64 `json:"total_spending"`
+		AvgPerDay     float64 `json:"avg_per_day"`
+		InputTokens   int64   `json:"input_tokens"`
+		OutputTokens  int64   `json:"output_tokens"`
+		CachedTokens  int64   `json:"cached_tokens"`
+		PeakHour      string  `json:"peak_hour"`
+	} `json:"stats"`
+	DailySpending []struct {
+		Date     string  `json:"date"`
+		Spending float64 `json:"spending"`
+		Requests int64   `json:"requests"`
+	} `json:"daily_spending"`
 }
 
 // GetAuthHeader get auth header
@@ -335,6 +373,76 @@ func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 	return balance, nil
 }
 
+func isTop1DataChannel(channel *model.Channel) bool {
+	if channel.Type == constant.ChannelTypeTop1Data {
+		return true
+	}
+	baseURL := strings.ToLower(channel.GetBaseURL())
+	return strings.Contains(baseURL, "top1data") || strings.Contains(baseURL, "techopenclaw")
+}
+
+func updateChannelTop1DataBalance(channel *model.Channel) (channelBalanceResult, error) {
+	// Try channel base URL first, then fall back to the known Top1Data user API
+	baseURL := channel.GetBaseURL()
+	var body []byte
+	var err error
+	if baseURL != "" {
+		url := fmt.Sprintf("%s/v1/user/info", strings.TrimRight(baseURL, "/"))
+		body, err = GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	}
+	if baseURL == "" || err != nil {
+		url := "https://user.top1data.com/v1/user/info"
+		body, err = GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	}
+	if err != nil {
+		return channelBalanceResult{}, err
+	}
+	response := Top1DataUserInfoResponse{}
+	if err := common.Unmarshal(body, &response); err != nil {
+		return channelBalanceResult{}, err
+	}
+	balance := response.TotalAvailableCredits
+	if math.IsNaN(balance) || math.IsInf(balance, 0) || balance < 0 {
+		return channelBalanceResult{}, fmt.Errorf("invalid top1data balance: %v", balance)
+	}
+	channel.UpdateBalance(balance)
+	return channelBalanceResult{
+		Balance:  balance,
+		Currency: "credits",
+		Details: map[string]any{
+			"wallet_type":             response.WalletType,
+			"status":                  response.Status,
+			"balance":                 response.Balance,
+			"spend_rate_per_min":      response.SpendRatePerMin,
+			"daily_used":              response.DailyUsed,
+			"daily_limit":             response.DailyLimit,
+			"plan_remaining":          response.PlanRemaining,
+			"topup_balance":           response.TopupBalance,
+			"total_available_credits": response.TotalAvailableCredits,
+			"credit_used":             response.CreditUsed,
+			"plan": map[string]any{
+				"name":              response.Plan.Name,
+				"reset_in_seconds":  response.Plan.ResetInSeconds,
+				"expires_in_days":   response.Plan.ExpiresInDays,
+				"expires_at":        response.Plan.ExpiresAt,
+				"daily_limit":       response.Plan.DailyLimit,
+				"daily_used":        response.Plan.DailyUsed,
+				"daily_remaining":   response.Plan.DailyRemaining,
+			},
+			"stats": map[string]any{
+				"total_requests": response.Stats.TotalRequests,
+				"total_spending": response.Stats.TotalSpending,
+				"avg_per_day":     response.Stats.AvgPerDay,
+				"input_tokens":    response.Stats.InputTokens,
+				"output_tokens":   response.Stats.OutputTokens,
+				"cached_tokens":   response.Stats.CachedTokens,
+				"peak_hour":       response.Stats.PeakHour,
+			},
+			"daily_spending": response.DailySpending,
+		},
+	}, nil
+}
+
 func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.moonshot.cn/v1/users/me/balance"
 	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
@@ -458,6 +566,9 @@ func updateChannelBalance(channel *model.Channel) (channelBalanceResult, error) 
 	if channel.Type == constant.ChannelTypeAdvancedCustom {
 		return fetchAdvancedCustomBalance(channel)
 	}
+	if isTop1DataChannel(channel) {
+		return updateChannelTop1DataBalance(channel)
+	}
 	balance, err := updateStandardChannelBalance(channel)
 	return channelBalanceResult{Balance: balance}, err
 }
@@ -538,10 +649,58 @@ func UpdateChannelBalance(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if channel.ChannelInfo.IsMultiKey {
+	if channel.ChannelInfo.IsMultiKey && !isTop1DataChannel(channel) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "多密钥渠道不支持余额查询",
+		})
+		return
+	}
+	if channel.ChannelInfo.IsMultiKey && isTop1DataChannel(channel) {
+		keys := channel.GetKeys()
+		type keyBalanceEntry struct {
+			KeyIndex int            `json:"key_index"`
+			KeyHint  string         `json:"key_hint"`
+			Balance  float64        `json:"balance"`
+			Details  map[string]any `json:"details,omitempty"`
+			Error    string         `json:"error,omitempty"`
+		}
+		var totalBalance float64
+		entries := make([]keyBalanceEntry, 0, len(keys))
+		for i, key := range keys {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			// Build a key hint: first 8 + last 4 chars
+			hint := key
+			if len(key) > 14 {
+				hint = key[:8] + "..." + key[len(key)-4:]
+			}
+			cloned := *channel
+			cloned.Key = key
+			result, err := updateChannelBalance(&cloned)
+			entry := keyBalanceEntry{
+				KeyIndex: i,
+				KeyHint:  hint,
+			}
+			if err != nil {
+				entry.Error = err.Error()
+			} else {
+				entry.Balance = result.Balance
+				entry.Details = result.Details
+				totalBalance += result.Balance
+			}
+			entries = append(entries, entry)
+		}
+		// Persist the sum as channel balance
+		channel.UpdateBalance(totalBalance)
+		c.JSON(http.StatusOK, gin.H{
+			"success":      true,
+			"message":      "",
+			"balance":      totalBalance,
+			"currency":     "credits",
+			"key_balances": entries,
 		})
 		return
 	}
@@ -556,6 +715,12 @@ func UpdateChannelBalance(c *gin.Context) {
 	}
 	if result.RawResponse == "" {
 		response["balance"] = result.Balance
+		if result.Currency != "" {
+			response["currency"] = result.Currency
+		}
+		if result.Details != nil {
+			response["details"] = result.Details
+		}
 	} else {
 		response["raw_response"] = result.RawResponse
 	}

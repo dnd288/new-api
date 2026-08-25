@@ -164,6 +164,16 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'Models',
     },
   },
+  61: {
+    id: 61,
+    name: CHANNEL_TYPES[61],
+    icon: 'newapi',
+    hints: {
+      baseUrl: 'OpenAI-compatible inference base URL',
+      key: 'Top1Data API Key',
+      models: 'Models exposed by this provider',
+    },
+  },
 }
 
 /**
