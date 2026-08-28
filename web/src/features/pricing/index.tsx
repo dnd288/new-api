@@ -107,7 +107,7 @@ export function Pricing() {
         />
         <PageTransition className='relative mx-auto w-full max-w-[1200px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'>
           <header className='mx-auto mb-8 max-w-3xl pt-5 text-center sm:mb-12 sm:pt-10'>
-            <h1 className='bg-gradient-to-r from-landing-primary via-landing-accent to-landing-accent-hot bg-clip-text text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight text-transparent'>
+            <h1 className='from-landing-primary via-landing-accent to-landing-accent-hot bg-gradient-to-r bg-clip-text text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight text-transparent'>
               {t('Model Square')}
             </h1>
             <p className='text-muted-foreground/80 mt-3 text-sm sm:mt-4 sm:text-base'>

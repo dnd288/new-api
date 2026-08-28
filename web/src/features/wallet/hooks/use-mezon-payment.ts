@@ -46,13 +46,10 @@ export function useMezonPayment() {
           const dong = response.data.dong
           const mzd = response.data.mzd ?? dong
           toast.success(
-            i18next.t(
-              'Top-up successful! {{dong}} dong → {{mzd}} mzđ (1:1)',
-              {
-                dong,
-                mzd,
-              }
-            )
+            i18next.t('Top-up successful! {{dong}} dong → {{mzd}} mzđ (1:1)', {
+              dong,
+              mzd,
+            })
           )
           await getSelf()
           return true

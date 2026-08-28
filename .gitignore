@@ -43,3 +43,4 @@ go.work
 go.work.sum
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+.mcp.json

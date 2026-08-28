@@ -52,14 +52,14 @@ export function Hero(props: HeroProps) {
 
       {/* Top Pill Badge */}
       <div
-        className='landing-animate-fade-up border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium opacity-0 shadow-xs'
+        className='landing-animate-fade-up mb-5 inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-medium text-amber-600 opacity-0 shadow-xs dark:text-amber-400'
         style={{ animationDelay: '0ms' }}
       >
         <span className='relative flex size-1.5'>
-          <span className='bg-amber-500 absolute inline-flex h-full w-full animate-ping rounded-full opacity-75' />
-          <span className='bg-amber-600 dark:bg-amber-400 relative inline-flex size-1.5 rounded-full' />
+          <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75' />
+          <span className='relative inline-flex size-1.5 rounded-full bg-amber-600 dark:bg-amber-400' />
         </span>
-        <DollarSign className='size-3 mr-0.5' />
+        <DollarSign className='mr-0.5 size-3' />
         <span>{t('Affordable AI API Gateway • Use With Care')}</span>
       </div>
 
@@ -84,13 +84,13 @@ export function Hero(props: HeroProps) {
 
       {/* Security & Caution Notice Box */}
       <div
-        className='landing-animate-fade-up border-amber-500/30 bg-amber-500/5 dark:bg-amber-950/20 text-left mx-auto mt-6 max-w-2xl rounded-xl border p-4.5 opacity-0 backdrop-blur-xs'
+        className='landing-animate-fade-up mx-auto mt-6 max-w-2xl rounded-xl border border-amber-500/30 bg-amber-500/5 p-4.5 text-left opacity-0 backdrop-blur-xs dark:bg-amber-950/20'
         style={{ animationDelay: '150ms' }}
       >
         <div className='flex items-start gap-3'>
-          <AlertTriangle className='text-amber-500 mt-0.5 size-5 shrink-0' />
-          <div className='space-y-1 text-xs sm:text-sm text-muted-foreground'>
-            <p className='font-semibold text-foreground flex items-center gap-1.5'>
+          <AlertTriangle className='mt-0.5 size-5 shrink-0 text-amber-500' />
+          <div className='text-muted-foreground space-y-1 text-xs sm:text-sm'>
+            <p className='text-foreground flex items-center gap-1.5 font-semibold'>
               {t('Important Notice & Usage Advisory')}
             </p>
             <p className='leading-relaxed'>

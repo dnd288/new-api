@@ -33,11 +33,10 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatTimestampToDate } from '@/lib/format'
 
-import { CHANNEL_TYPE_TOP1DATA } from '../../constants'
-import type { KeyBalanceEntry } from '../../types'
-
 import { getCodexUsage, updateChannelBalance } from '../../api'
+import { CHANNEL_TYPE_TOP1DATA } from '../../constants'
 import { channelsQueryKeys } from '../../lib'
+import type { KeyBalanceEntry } from '../../types'
 import { useChannels } from '../channels-provider'
 import {
   CodexUsageDialog,
@@ -169,9 +168,9 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
 
   const formatDetailValue = (value: unknown): string => {
     if (typeof value === 'number') {
-      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(
-        value
-      )
+      return new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 4,
+      }).format(value)
     }
     if (typeof value === 'string') return value
     return '-'
@@ -179,10 +178,12 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
 
   const formatCredits = (value: unknown): string => {
     if (typeof value !== 'number') return '-'
-    return new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(value) + ' credits'
+    return (
+      new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4,
+      }).format(value) + ' credits'
+    )
   }
 
   const formatHours = (seconds: unknown): string => {
@@ -195,11 +196,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
     return `${hours.toFixed(1)} ${hours === 1 ? 'hr' : 'hrs'}`
   }
 
-  const renderDailyUsageBar = (
-    used: number,
-    limit: number,
-    label: string
-  ) => {
+  const renderDailyUsageBar = (used: number, limit: number, label: string) => {
     const pct = limit > 0 ? Math.min((used / limit) * 100, 100) : 0
     const color = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#22c55e'
     return (
@@ -210,7 +207,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
             {formatDetailValue(used)} / {formatDetailValue(limit)}
           </span>
         </div>
-        <div className='h-2.5 w-full overflow-hidden rounded-full bg-muted'>
+        <div className='bg-muted h-2.5 w-full overflow-hidden rounded-full'>
           <div
             className='h-full rounded-full transition-all'
             style={{ width: `${pct}%`, backgroundColor: color }}
@@ -223,14 +220,10 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
     )
   }
 
-  const renderDailySpendingChart = (
-    spending: Record<string, unknown>[]
-  ) => {
+  const renderDailySpendingChart = (spending: Record<string, unknown>[]) => {
     if (spending.length === 0) return null
     const maxSpending = Math.max(
-      ...spending.map((d) =>
-        typeof d.spending === 'number' ? d.spending : 0
-      ),
+      ...spending.map((d) => (typeof d.spending === 'number' ? d.spending : 0)),
       0.001
     )
     return (
@@ -238,11 +231,9 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
         <div className='text-sm font-medium'>{t('Daily Spending')}</div>
         <div className='max-h-64 space-y-1 overflow-auto'>
           {spending.map((item, i) => {
-            const val =
-              typeof item.spending === 'number' ? item.spending : 0
+            const val = typeof item.spending === 'number' ? item.spending : 0
             const pct = (val / maxSpending) * 100
-            const req =
-              typeof item.requests === 'number' ? item.requests : 0
+            const req = typeof item.requests === 'number' ? item.requests : 0
             return (
               <div key={`${String(item.date)}-${i}`} className='space-y-0.5'>
                 <div className='flex items-center justify-between text-xs'>
@@ -250,7 +241,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                     {String(item.date ?? '')}
                   </span>
                   <span className='flex-1 px-2'>
-                    <div className='h-1.5 w-full overflow-hidden rounded-full bg-muted'>
+                    <div className='bg-muted h-1.5 w-full overflow-hidden rounded-full'>
                       <div
                         className='h-full rounded-full bg-blue-500 transition-all'
                         style={{ width: `${pct}%` }}
@@ -290,10 +281,17 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
         : planDailyLimit > 0
           ? planDailyLimit - planDailyRemaining
           : 0
-    const dailyLimit = planDailyLimit > 0 ? planDailyLimit
-      : typeof details.daily_limit === 'number' ? details.daily_limit : 0
+    const dailyLimit =
+      planDailyLimit > 0
+        ? planDailyLimit
+        : typeof details.daily_limit === 'number'
+          ? details.daily_limit
+          : 0
 
-    const formatExpiry = (expiresAt: unknown, expiresInDays: unknown): string => {
+    const formatExpiry = (
+      expiresAt: unknown,
+      expiresInDays: unknown
+    ): string => {
       if (typeof expiresInDays === 'number' && expiresInDays > 0) {
         const dateStr = typeof expiresAt === 'string' ? expiresAt : ''
         const daysLabel = expiresInDays === 1 ? t('day') : t('days')
@@ -315,9 +313,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
             </div>
             <div className='mt-1 text-lg font-bold'>
               {formatCredits(
-                typeof details.balance === 'number'
-                  ? details.balance
-                  : 0
+                typeof details.balance === 'number' ? details.balance : 0
               )}
             </div>
           </div>
@@ -341,16 +337,16 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
 
         {/* Plan info */}
         <div className='grid gap-2 sm:grid-cols-2'>
-          {plan?.name && (
-            <div className='rounded-md bg-muted/40 p-3'>
+          {Boolean(plan?.name) && (
+            <div className='bg-muted/40 rounded-md p-3'>
               <div className='text-muted-foreground text-xs'>{t('Plan')}</div>
               <div className='mt-1 text-sm font-medium'>
-                {String(plan.name)}
+                {String(plan?.name)}
               </div>
             </div>
           )}
           {(plan?.expires_at || typeof plan?.expires_in_days === 'number') && (
-            <div className='rounded-md bg-muted/40 p-3'>
+            <div className='bg-muted/40 rounded-md p-3'>
               <div className='text-muted-foreground text-xs'>
                 {t('Expires')}
               </div>
@@ -360,7 +356,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
             </div>
           )}
           {typeof plan?.reset_in_seconds === 'number' && (
-            <div className='rounded-md bg-muted/40 p-3'>
+            <div className='bg-muted/40 rounded-md p-3'>
               <div className='text-muted-foreground text-xs'>
                 {t('Resets In')}
               </div>
@@ -377,7 +373,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
             <div className='text-sm font-medium'>{t('Statistics')}</div>
             <div className='grid gap-2 sm:grid-cols-3'>
               {typeof stats.total_requests === 'number' && (
-                <div className='rounded-md bg-muted/40 p-2'>
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Total Requests')}
                   </div>
@@ -387,7 +383,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 </div>
               )}
               {typeof stats.total_spending === 'number' && (
-                <div className='rounded-md bg-muted/40 p-2'>
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Total Spending')}
                   </div>
@@ -397,7 +393,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 </div>
               )}
               {typeof stats.avg_per_day === 'number' && (
-                <div className='rounded-md bg-muted/40 p-2'>
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Average Per Day')}
                   </div>
@@ -407,7 +403,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 </div>
               )}
               {typeof stats.input_tokens === 'number' && (
-                <div className='rounded-md bg-muted/40 p-2'>
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Input Tokens')}
                   </div>
@@ -417,7 +413,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 </div>
               )}
               {typeof stats.output_tokens === 'number' && (
-                <div className='rounded-md bg-muted/40 p-2'>
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Output Tokens')}
                   </div>
@@ -427,7 +423,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 </div>
               )}
               {typeof stats.cached_tokens === 'number' && (
-                <div className='rounded-md bg-muted/40 p-2'>
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Cached Tokens')}
                   </div>
@@ -436,8 +432,8 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                   </div>
                 </div>
               )}
-              {stats.peak_hour && (
-                <div className='rounded-md bg-muted/40 p-2'>
+              {Boolean(stats.peak_hour) && (
+                <div className='bg-muted/40 rounded-md p-2'>
                   <div className='text-muted-foreground text-[10px]'>
                     {t('Peak Hour')}
                   </div>
@@ -468,9 +464,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
           const entryDetails = entry.details as
             | Record<string, unknown>
             | undefined
-          const plan = entryDetails?.plan as
-            | Record<string, unknown>
-            | undefined
+          const plan = entryDetails?.plan as Record<string, unknown> | undefined
           const stats = entryDetails?.stats as
             | Record<string, unknown>
             | undefined
@@ -491,11 +485,12 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
               : planDailyLimit > 0
                 ? planDailyLimit - planDailyRemaining
                 : 0
-          const dailyLimit = planDailyLimit > 0
-            ? planDailyLimit
-            : typeof entryDetails?.daily_limit === 'number'
-              ? entryDetails.daily_limit
-              : 0
+          const dailyLimit =
+            planDailyLimit > 0
+              ? planDailyLimit
+              : typeof entryDetails?.daily_limit === 'number'
+                ? entryDetails.daily_limit
+                : 0
 
           return (
             <div
@@ -518,7 +513,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 <div className='space-y-2'>
                   {/* Credit breakdown */}
                   <div className='grid gap-1.5 sm:grid-cols-2'>
-                    <div className='rounded bg-muted/40 px-2 py-1.5'>
+                    <div className='bg-muted/40 rounded px-2 py-1.5'>
                       <div className='text-muted-foreground text-[10px]'>
                         {t('Plan Credit')}
                       </div>
@@ -526,7 +521,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                         {formatCredits(entryDetails.balance)}
                       </div>
                     </div>
-                    <div className='rounded bg-muted/40 px-2 py-1.5'>
+                    <div className='bg-muted/40 rounded px-2 py-1.5'>
                       <div className='text-muted-foreground text-[10px]'>
                         {t('Top-up Balance')}
                       </div>
@@ -536,12 +531,13 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                     </div>
                   </div>
                   {/* Daily usage */}
-                  {dailyLimit > 0 &&
-                    renderDailyUsageBar(dailyUsed, dailyLimit, t('Today'))}
+                  {dailyLimit > 0
+                    ? renderDailyUsageBar(dailyUsed, dailyLimit, t('Today'))
+                    : null}
                   {/* Plan info */}
-                  {plan?.name && (
+                  {Boolean(plan?.name) && (
                     <div className='text-muted-foreground text-[10px]'>
-                      {String(plan.name)}
+                      {String(plan?.name)}
                       {plan?.expires_in_days
                         ? ` · ${plan.expires_in_days} ${t('days')}`
                         : ''}
@@ -553,10 +549,12 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                   {/* Statistics */}
                   {stats && (
                     <div className='space-y-1.5 rounded border p-2'>
-                      <div className='text-xs font-medium'>{t('Statistics')}</div>
+                      <div className='text-xs font-medium'>
+                        {t('Statistics')}
+                      </div>
                       <div className='grid gap-1.5 sm:grid-cols-3'>
                         {typeof stats.total_requests === 'number' && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Total Requests')}
                             </div>
@@ -566,7 +564,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                           </div>
                         )}
                         {typeof stats.total_spending === 'number' && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Total Spending')}
                             </div>
@@ -576,7 +574,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                           </div>
                         )}
                         {typeof stats.avg_per_day === 'number' && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Average Per Day')}
                             </div>
@@ -586,7 +584,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                           </div>
                         )}
                         {typeof stats.input_tokens === 'number' && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Input Tokens')}
                             </div>
@@ -596,7 +594,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                           </div>
                         )}
                         {typeof stats.output_tokens === 'number' && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Output Tokens')}
                             </div>
@@ -606,7 +604,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                           </div>
                         )}
                         {typeof stats.cached_tokens === 'number' && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Cached Tokens')}
                             </div>
@@ -615,8 +613,8 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                             </div>
                           </div>
                         )}
-                        {stats.peak_hour && (
-                          <div className='rounded bg-muted/40 px-2 py-1'>
+                        {Boolean(stats.peak_hour) && (
+                          <div className='bg-muted/40 rounded px-2 py-1'>
                             <div className='text-muted-foreground text-[10px]'>
                               {t('Peak Hour')}
                             </div>
@@ -629,7 +627,8 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                     </div>
                   )}
                   {/* Daily spending chart */}
-                  {dailySpending.length > 0 && renderDailySpendingChart(dailySpending)}
+                  {dailySpending.length > 0 &&
+                    renderDailySpendingChart(dailySpending)}
                 </div>
               )}
             </div>

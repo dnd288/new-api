@@ -115,7 +115,7 @@ func ExportMezonTopUpReport(c *gin.Context) {
 
 	// Table header
 	headers := []string{"Transaction ID", "Tx Hash", "Mezon User", "Email", "Amount (đồng)", "Time"}
-	widths := []float64{20, 105, 35, 62, 30, 25}
+	widths := []float64{30, 85, 45, 62, 30, 25}
 	pdf.SetFont(reportFontBold, "", 9)
 	pdf.SetFillColor(238, 238, 250)
 	for i, h := range headers {

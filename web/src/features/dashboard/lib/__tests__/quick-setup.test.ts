@@ -21,12 +21,17 @@ import { describe, test } from 'node:test'
 
 import {
   buildClaudeCodeSnippet,
+  buildOmpSnippet,
   buildOpenCodeSnippet,
   formatGatewayApiKey,
   normalizeGatewayBaseUrl,
   openaiCompatibleBaseUrl,
+  OMP_PROVIDER_ID,
   OPENCODE_PROVIDER_ID,
+  pickDefaultHaikuModel,
+  pickDefaultOpusModel,
   pickDefaultQuickSetupModel,
+  pickDefaultSonnetModel,
   QUICK_SETUP_API_KEY_PLACEHOLDER,
   resolveGatewayServerAddress,
 } from '../quick-setup'
@@ -66,16 +71,28 @@ describe('formatGatewayApiKey', () => {
   })
 })
 
-describe('pickDefaultQuickSetupModel', () => {
-  test('prefers a Claude Sonnet 4 model when several models are available', () => {
-    assert.equal(
-      pickDefaultQuickSetupModel([
-        'gpt-4.1',
-        'claude-opus-4',
-        'claude-sonnet-4-6',
-      ]),
-      'claude-sonnet-4-6'
-    )
+describe('pickDefaultQuickSetupModel and family pickers', () => {
+  const models = [
+    'gpt-4.1',
+    'claude-opus-4',
+    'claude-sonnet-4-6',
+    'claude-3-5-haiku',
+  ]
+
+  test('prefers a Claude Sonnet 4 model for primary', () => {
+    assert.equal(pickDefaultQuickSetupModel(models), 'claude-sonnet-4-6')
+  })
+
+  test('picks sonnet model accurately', () => {
+    assert.equal(pickDefaultSonnetModel(models), 'claude-sonnet-4-6')
+  })
+
+  test('picks opus model accurately', () => {
+    assert.equal(pickDefaultOpusModel(models), 'claude-opus-4')
+  })
+
+  test('picks haiku model accurately', () => {
+    assert.equal(pickDefaultHaikuModel(models), 'claude-3-5-haiku')
   })
 
   test('returns an empty string when the model list is empty', () => {
@@ -95,11 +112,16 @@ describe('resolveGatewayServerAddress', () => {
 })
 
 describe('buildClaudeCodeSnippet', () => {
-  test('settings snippet omits /v1 and pins every Claude Code alias to the picked model', () => {
+  test('settings snippet omits /v1 and maps specific models to Claude Code aliases', () => {
     const snippet = buildClaudeCodeSnippet({
       baseUrl: 'https://gw.example.com/',
       apiKey: 'abc123',
-      model: 'my-sonnet',
+      models: {
+        primary: 'claude-sonnet-4',
+        sonnet: 'claude-3-7-sonnet',
+        opus: 'claude-opus-4',
+        haiku: 'claude-3-5-haiku',
+      },
       format: 'settings',
     })
     const parsed = JSON.parse(snippet) as {
@@ -108,33 +130,50 @@ describe('buildClaudeCodeSnippet', () => {
 
     assert.equal(parsed.env.ANTHROPIC_BASE_URL, 'https://gw.example.com')
     assert.equal(parsed.env.ANTHROPIC_AUTH_TOKEN, 'sk-abc123')
-    assert.equal(parsed.env.ANTHROPIC_MODEL, 'my-sonnet')
-    assert.equal(parsed.env.ANTHROPIC_DEFAULT_HAIKU_MODEL, 'my-sonnet')
-    assert.equal(parsed.env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'my-sonnet')
-    assert.equal(parsed.env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'my-sonnet')
-    assert.equal(parsed.env.ANTHROPIC_DEFAULT_FABLE_MODEL, 'my-sonnet')
+    assert.equal(parsed.env.ANTHROPIC_MODEL, 'claude-sonnet-4')
+    assert.equal(parsed.env.ANTHROPIC_DEFAULT_HAIKU_MODEL, 'claude-3-5-haiku')
+    assert.equal(parsed.env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-3-7-sonnet')
+    assert.equal(parsed.env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-4')
+    assert.equal(parsed.env.ANTHROPIC_DEFAULT_FABLE_MODEL, 'claude-3-5-haiku')
   })
 
-  test('shell snippet exports the same gateway values', () => {
+  test('shell snippet exports specific alias models', () => {
     const snippet = buildClaudeCodeSnippet({
       baseUrl: 'https://gw.example.com',
       apiKey: 'sk-abc123',
-      model: 'my-sonnet',
+      models: {
+        primary: 'claude-sonnet-4',
+        sonnet: 'claude-sonnet-4',
+        opus: 'claude-opus-4',
+        haiku: 'claude-3-5-haiku',
+      },
       format: 'shell',
     })
 
-    assert.match(snippet, /export ANTHROPIC_BASE_URL='https:\/\/gw\.example\.com'/)
+    assert.match(
+      snippet,
+      /export ANTHROPIC_BASE_URL='https:\/\/gw\.example\.com'/
+    )
     assert.match(snippet, /export ANTHROPIC_AUTH_TOKEN='sk-abc123'/)
-    assert.match(snippet, /export ANTHROPIC_DEFAULT_HAIKU_MODEL='my-sonnet'/)
+    assert.match(snippet, /export ANTHROPIC_MODEL='claude-sonnet-4'/)
+    assert.match(
+      snippet,
+      /export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4'/
+    )
+    assert.match(snippet, /export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4'/)
+    assert.match(
+      snippet,
+      /export ANTHROPIC_DEFAULT_HAIKU_MODEL='claude-3-5-haiku'/
+    )
   })
 })
 
 describe('buildOpenCodeSnippet', () => {
-  test('writes an OpenAI-compatible provider pointed at /v1 with the picked model', () => {
+  test('writes an OpenAI-compatible provider pointed at /v1 with multiple models', () => {
     const snippet = buildOpenCodeSnippet({
       baseUrl: 'https://gw.example.com',
       apiKey: 'sk-abc123',
-      model: 'my-sonnet',
+      models: ['claude-sonnet-4', 'gpt-4.1', 'deepseek-r1'],
     })
     const parsed = JSON.parse(snippet) as {
       model: string
@@ -147,7 +186,7 @@ describe('buildOpenCodeSnippet', () => {
       >
     }
 
-    assert.equal(parsed.model, `${OPENCODE_PROVIDER_ID}/my-sonnet`)
+    assert.equal(parsed.model, `${OPENCODE_PROVIDER_ID}/claude-sonnet-4`)
     assert.equal(
       parsed.provider[OPENCODE_PROVIDER_ID]?.options.baseURL,
       'https://gw.example.com/v1'
@@ -157,9 +196,38 @@ describe('buildOpenCodeSnippet', () => {
       'sk-abc123'
     )
     assert.equal(
-      parsed.provider[OPENCODE_PROVIDER_ID]?.models['my-sonnet']?.name,
-      'my-sonnet'
+      parsed.provider[OPENCODE_PROVIDER_ID]?.models['claude-sonnet-4']?.name,
+      'claude-sonnet-4'
     )
+    assert.equal(
+      parsed.provider[OPENCODE_PROVIDER_ID]?.models['gpt-4.1']?.name,
+      'gpt-4.1'
+    )
+    assert.equal(
+      parsed.provider[OPENCODE_PROVIDER_ID]?.models['deepseek-r1']?.name,
+      'deepseek-r1'
+    )
+    assert.doesNotMatch(snippet, new RegExp(QUICK_SETUP_API_KEY_PLACEHOLDER))
+  })
+})
+
+describe('buildOmpSnippet', () => {
+  test('writes an Oh My Pi provider YAML config pointed at /v1 with multiple models', () => {
+    const snippet = buildOmpSnippet({
+      baseUrl: 'https://gw.example.com',
+      apiKey: 'sk-abc123',
+      models: ['claude-sonnet-4', 'gpt-4.1'],
+    })
+
+    assert.match(snippet, /^providers:\n/)
+    assert.match(snippet, new RegExp(`  ${OMP_PROVIDER_ID}:\n`))
+    assert.match(snippet, /baseUrl: https:\/\/gw\.example\.com\/v1/)
+    assert.match(snippet, /apiKey: sk-abc123/)
+    assert.match(snippet, /api: openai-completions/)
+    assert.match(snippet, /- id: claude-sonnet-4/)
+    assert.match(snippet, /name: claude-sonnet-4/)
+    assert.match(snippet, /- id: gpt-4.1/)
+    assert.match(snippet, /name: gpt-4.1/)
     assert.doesNotMatch(snippet, new RegExp(QUICK_SETUP_API_KEY_PLACEHOLDER))
   })
 })

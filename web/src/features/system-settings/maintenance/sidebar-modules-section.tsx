@@ -156,9 +156,7 @@ export function SidebarModulesSection({
       },
       topup: {
         title: t('Mezon Top-up Reports'),
-        description: t(
-          'Monthly Mezon đồng top-up report export (JSON/PDF).'
-        ),
+        description: t('Monthly Mezon đồng top-up report export (JSON/PDF).'),
       },
     },
   }

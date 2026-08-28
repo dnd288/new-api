@@ -22,6 +22,7 @@ import { Check, Copy, Terminal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
 import { ComboboxInput } from '@/components/ui/combobox-input'
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -29,11 +30,16 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   buildClaudeCodeSnippet,
+  buildOmpSnippet,
   buildOpenCodeSnippet,
   formatGatewayApiKey,
+  pickDefaultHaikuModel,
+  pickDefaultOpusModel,
   pickDefaultQuickSetupModel,
+  pickDefaultSonnetModel,
   resolveGatewayServerAddress,
   QUICK_SETUP_API_KEY_PLACEHOLDER,
+  type ClaudeCodeModels,
   type ClaudeCodeSnippetFormat,
   type QuickSetupClient,
 } from '@/features/dashboard/lib/quick-setup'
@@ -53,7 +59,15 @@ export function QuickSetupPanel() {
   const [claudeFormat, setClaudeFormat] =
     useState<ClaudeCodeSnippetFormat>('settings')
   const [selectedKeyId, setSelectedKeyId] = useState('')
-  const [selectedModel, setSelectedModel] = useState('')
+
+  // Claude models state
+  const [selectedPrimaryModel, setSelectedPrimaryModel] = useState('')
+  const [selectedSonnetModel, setSelectedSonnetModel] = useState('')
+  const [selectedOpusModel, setSelectedOpusModel] = useState('')
+  const [selectedHaikuModel, setSelectedHaikuModel] = useState('')
+
+  // Multi-models state for OpenCode and OMP
+  const [selectedMultiModels, setSelectedMultiModels] = useState<string[]>([])
   const [isCopyingKey, setIsCopyingKey] = useState(false)
 
   const keysQuery = useQuery({
@@ -94,31 +108,84 @@ export function QuickSetupPanel() {
 
   const firstEnabledKeyId = enabledKeys[0] ? String(enabledKeys[0].id) : ''
   const keyId = selectedKeyId || firstEnabledKeyId
-  const model = selectedModel || pickDefaultQuickSetupModel(models)
   const keyIdNumber = Number(keyId)
+
+  // Claude models resolution
+  const primaryModel =
+    selectedPrimaryModel || pickDefaultQuickSetupModel(models)
+  const sonnetModel =
+    selectedSonnetModel || pickDefaultSonnetModel(models) || primaryModel
+  const opusModel =
+    selectedOpusModel || pickDefaultOpusModel(models) || primaryModel
+  const haikuModel =
+    selectedHaikuModel || pickDefaultHaikuModel(models) || primaryModel
+
+  const claudeModelsConfig: ClaudeCodeModels = {
+    primary: primaryModel,
+    sonnet: sonnetModel,
+    opus: opusModel,
+    haiku: haikuModel,
+  }
+
+  // OpenCode & OMP multi-models resolution
+  const effectiveMultiModels =
+    selectedMultiModels.length > 0
+      ? selectedMultiModels
+      : [pickDefaultQuickSetupModel(models)].filter(Boolean)
 
   const baseUrl = resolveGatewayServerAddress(status)
   const apiKey = QUICK_SETUP_API_KEY_PLACEHOLDER
-  const snippet =
+
+  let snippet = ''
+  if (client === 'claude') {
+    snippet = buildClaudeCodeSnippet({
+      baseUrl,
+      apiKey,
+      models: claudeModelsConfig,
+      format: claudeFormat,
+    })
+  } else if (client === 'opencode') {
+    snippet = buildOpenCodeSnippet({
+      baseUrl,
+      apiKey,
+      models: effectiveMultiModels,
+    })
+  } else {
+    snippet = buildOmpSnippet({
+      baseUrl,
+      apiKey,
+      models: effectiveMultiModels,
+    })
+  }
+
+  const hasModelsSelected =
     client === 'claude'
-      ? buildClaudeCodeSnippet({
-          baseUrl,
-          apiKey,
-          model,
-          format: claudeFormat,
-        })
-      : buildOpenCodeSnippet({ baseUrl, apiKey, model })
+      ? Boolean(primaryModel)
+      : effectiveMultiModels.length > 0
   const canCopy =
     Number.isFinite(keyIdNumber) &&
     keyIdNumber > 0 &&
-    Boolean(model) &&
+    hasModelsSelected &&
     Boolean(baseUrl)
   const isCopied = Boolean(copiedText) && !isCopyingKey
+
   let snippetLabel = '~/.claude/settings.json'
-  if (client === 'opencode') {
+  let footerHelpText = t('Paste into ~/.claude/settings.json, then run claude.')
+  if (client === 'claude') {
+    if (claudeFormat === 'shell') {
+      snippetLabel = t('Shell')
+      footerHelpText = t(
+        'Run these commands in your shell before starting Claude Code.'
+      )
+    }
+  } else if (client === 'opencode') {
     snippetLabel = '~/.config/opencode/opencode.json'
-  } else if (claudeFormat === 'shell') {
-    snippetLabel = t('Shell')
+    footerHelpText = t(
+      'Save as ~/.config/opencode/opencode.json, then run opencode.'
+    )
+  } else {
+    snippetLabel = '~/.omp/agent/models.yml'
+    footerHelpText = t('Save as ~/.omp/agent/models.yml, then run omp.')
   }
 
   return (
@@ -131,7 +198,9 @@ export function QuickSetupPanel() {
           {t('Quick setup')}
         </span>
       }
-      description={t('Point Claude Code or OpenCode at this gateway')}
+      description={t(
+        'Point Claude Code, OpenCode, or Oh My Pi at this gateway'
+      )}
     >
       <div className='flex flex-col gap-4'>
         <Tabs
@@ -141,10 +210,11 @@ export function QuickSetupPanel() {
           <TabsList>
             <TabsTrigger value='claude'>Claude Code</TabsTrigger>
             <TabsTrigger value='opencode'>OpenCode</TabsTrigger>
+            <TabsTrigger value='omp'>Oh My Pi (OMP)</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className='grid gap-3 sm:grid-cols-2'>
+        <div className='space-y-3'>
           <div className='min-w-0 space-y-2'>
             <Label htmlFor='overview-quick-setup-key'>{t('API Key')}</Label>
             <ComboboxInput
@@ -168,27 +238,97 @@ export function QuickSetupPanel() {
               </p>
             ) : null}
           </div>
-          <div className='min-w-0 space-y-2'>
-            <Label htmlFor='overview-quick-setup-model'>{t('Model')}</Label>
-            <ComboboxInput
-              id='overview-quick-setup-model'
-              options={modelOptions}
-              value={model}
-              onValueChange={setSelectedModel}
-              placeholder={t('Select or enter model name')}
-              emptyText={t('No models found')}
-              allowCustomValue
-            />
-          </div>
-        </div>
 
-        {client === 'claude' ? (
-          <p className='text-muted-foreground text-xs'>
-            {t(
-              'Selected model is used for Claude Code aliases (Haiku, Sonnet, Opus, and Fable).'
-            )}
-          </p>
-        ) : null}
+          {client === 'claude' ? (
+            <div className='space-y-2'>
+              <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
+                <div className='min-w-0 space-y-1.5'>
+                  <Label htmlFor='overview-quick-setup-primary-model'>
+                    {t('Primary Model')}
+                  </Label>
+                  <ComboboxInput
+                    id='overview-quick-setup-primary-model'
+                    options={modelOptions}
+                    value={primaryModel}
+                    onValueChange={setSelectedPrimaryModel}
+                    placeholder={t('Select or enter model name')}
+                    emptyText={t('No models found')}
+                    allowCustomValue
+                  />
+                </div>
+                <div className='min-w-0 space-y-1.5'>
+                  <Label htmlFor='overview-quick-setup-sonnet-model'>
+                    {t('Sonnet Model')}
+                  </Label>
+                  <ComboboxInput
+                    id='overview-quick-setup-sonnet-model'
+                    options={modelOptions}
+                    value={sonnetModel}
+                    onValueChange={setSelectedSonnetModel}
+                    placeholder={t('Select or enter model name')}
+                    emptyText={t('No models found')}
+                    allowCustomValue
+                  />
+                </div>
+                <div className='min-w-0 space-y-1.5'>
+                  <Label htmlFor='overview-quick-setup-opus-model'>
+                    {t('Opus Model')}
+                  </Label>
+                  <ComboboxInput
+                    id='overview-quick-setup-opus-model'
+                    options={modelOptions}
+                    value={opusModel}
+                    onValueChange={setSelectedOpusModel}
+                    placeholder={t('Select or enter model name')}
+                    emptyText={t('No models found')}
+                    allowCustomValue
+                  />
+                </div>
+                <div className='min-w-0 space-y-1.5'>
+                  <Label htmlFor='overview-quick-setup-haiku-model'>
+                    {t('Haiku Model')}
+                  </Label>
+                  <ComboboxInput
+                    id='overview-quick-setup-haiku-model'
+                    options={modelOptions}
+                    value={haikuModel}
+                    onValueChange={setSelectedHaikuModel}
+                    placeholder={t('Select or enter model name')}
+                    emptyText={t('No models found')}
+                    allowCustomValue
+                  />
+                </div>
+              </div>
+              <p className='text-muted-foreground text-xs'>
+                {t(
+                  'Configure specific model aliases for Claude Code (Primary, Sonnet, Opus, Haiku).'
+                )}
+              </p>
+            </div>
+          ) : (
+            <div className='space-y-2'>
+              <div className='min-w-0 space-y-1.5'>
+                <Label htmlFor='overview-quick-setup-multi-models'>
+                  {t('Models')}
+                </Label>
+                <MultiSelect
+                  id='overview-quick-setup-multi-models'
+                  options={modelOptions}
+                  selected={effectiveMultiModels}
+                  onChange={setSelectedMultiModels}
+                  placeholder={t('Select models...')}
+                  allowCreate
+                  emptyText={t('No models found')}
+                />
+              </div>
+              <p className='text-muted-foreground text-xs'>
+                {client === 'opencode'
+                  ? t('Selected models will be configured for OpenCode.')
+                  : t('Selected models will be configured for Oh My Pi (OMP).')}
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className='space-y-2'>
           <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -230,19 +370,27 @@ export function QuickSetupPanel() {
                       if (!realKey) {
                         return
                       }
-                      const realSnippet =
-                        client === 'claude'
-                          ? buildClaudeCodeSnippet({
-                              baseUrl,
-                              apiKey: realKey,
-                              model,
-                              format: claudeFormat,
-                            })
-                          : buildOpenCodeSnippet({
-                              baseUrl,
-                              apiKey: realKey,
-                              model,
-                            })
+                      let realSnippet = ''
+                      if (client === 'claude') {
+                        realSnippet = buildClaudeCodeSnippet({
+                          baseUrl,
+                          apiKey: realKey,
+                          models: claudeModelsConfig,
+                          format: claudeFormat,
+                        })
+                      } else if (client === 'opencode') {
+                        realSnippet = buildOpenCodeSnippet({
+                          baseUrl,
+                          apiKey: realKey,
+                          models: effectiveMultiModels,
+                        })
+                      } else {
+                        realSnippet = buildOmpSnippet({
+                          baseUrl,
+                          apiKey: realKey,
+                          models: effectiveMultiModels,
+                        })
+                      }
                       await copyToClipboard(realSnippet)
                     } finally {
                       setIsCopyingKey(false)
@@ -255,18 +403,12 @@ export function QuickSetupPanel() {
               </Button>
             </div>
           </div>
-          <div className='overflow-x-auto rounded-lg border bg-muted/40'>
+          <div className='bg-muted/40 overflow-x-auto rounded-lg border'>
             <pre className='p-3 font-mono text-xs leading-relaxed whitespace-pre'>
               {snippet}
             </pre>
           </div>
-          <p className='text-muted-foreground text-xs'>
-            {client === 'claude'
-              ? t('Paste into ~/.claude/settings.json, then run claude.')
-              : t(
-                  'Save as ~/.config/opencode/opencode.json, then run opencode.'
-                )}
-          </p>
+          <p className='text-muted-foreground text-xs'>{footerHelpText}</p>
         </div>
       </div>
     </PanelWrapper>
