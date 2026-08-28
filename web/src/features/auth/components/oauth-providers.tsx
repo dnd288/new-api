@@ -165,7 +165,14 @@ export function OAuthProviders({
       <div className={cn('space-y-3', className)}>
         <div className='flex flex-col gap-2'>
           {providerButtons.map(
-            ({ key, label, onClick, icon, disabled: extraDisabled, emphasized }) => (
+            ({
+              key,
+              label,
+              onClick,
+              icon,
+              disabled: extraDisabled,
+              emphasized,
+            }) => (
               <Button
                 key={key}
                 variant='outline'

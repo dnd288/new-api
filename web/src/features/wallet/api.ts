@@ -189,11 +189,9 @@ export async function requestWaffoPancakePayment(
 export async function requestMezonPayment(
   txHash: string
 ): Promise<MezonPaymentResponse> {
-  const res = await api.post(
-    '/api/user/mezon/pay',
-    { tx_hash: txHash },
-    { skipBusinessError: true } as Record<string, unknown>
-  )
+  const res = await api.post('/api/user/mezon/pay', { tx_hash: txHash }, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
   return res.data
 }
 

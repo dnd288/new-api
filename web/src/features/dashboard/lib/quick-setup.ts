@@ -18,10 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 export const QUICK_SETUP_API_KEY_PLACEHOLDER = 'sk-••••••••'
 export const OPENCODE_PROVIDER_ID = 'newapi'
+export const OMP_PROVIDER_ID = 'newapi'
 export const CLAUDE_CODE_MODEL_PLACEHOLDER = 'your-model'
 
 export type ClaudeCodeSnippetFormat = 'settings' | 'shell'
-export type QuickSetupClient = 'claude' | 'opencode'
+export type QuickSetupClient = 'claude' | 'opencode' | 'omp'
+
+export interface ClaudeCodeModels {
+  primary?: string
+  sonnet?: string
+  opus?: string
+  haiku?: string
+}
 
 export function normalizeGatewayBaseUrl(raw: string): string {
   return raw.trim().replace(/\/+$/, '')
@@ -42,6 +50,8 @@ export function formatGatewayApiKey(raw: string): string {
 export function pickDefaultQuickSetupModel(models: string[]): string {
   const preferred = [
     /claude-sonnet-4/,
+    /claude-3-7-sonnet/,
+    /claude-3-5-sonnet/,
     /claude-sonnet/,
     /claude-opus/,
     /sonnet/,
@@ -52,6 +62,45 @@ export function pickDefaultQuickSetupModel(models: string[]): string {
     if (match) return match
   }
   return models[0] ?? ''
+}
+
+export function pickDefaultSonnetModel(models: string[]): string {
+  const preferred = [
+    /claude-sonnet-4/,
+    /claude-3-7-sonnet/,
+    /claude-3-5-sonnet/,
+    /claude-sonnet/,
+    /sonnet/,
+  ]
+  for (const pattern of preferred) {
+    const match = models.find((model) => pattern.test(model))
+    if (match) return match
+  }
+  return pickDefaultQuickSetupModel(models)
+}
+
+export function pickDefaultOpusModel(models: string[]): string {
+  const preferred = [/claude-opus-4/, /claude-3-opus/, /claude-opus/, /opus/]
+  for (const pattern of preferred) {
+    const match = models.find((model) => pattern.test(model))
+    if (match) return match
+  }
+  return pickDefaultQuickSetupModel(models)
+}
+
+export function pickDefaultHaikuModel(models: string[]): string {
+  const preferred = [
+    /claude-3-5-haiku/,
+    /claude-haiku-4/,
+    /claude-3-haiku/,
+    /claude-haiku/,
+    /haiku/,
+  ]
+  for (const pattern of preferred) {
+    const match = models.find((model) => pattern.test(model))
+    if (match) return match
+  }
+  return pickDefaultQuickSetupModel(models)
 }
 
 export function resolveGatewayServerAddress(status: unknown): string {
@@ -79,31 +128,38 @@ export function resolveGatewayServerAddress(status: unknown): string {
 function claudeCodeEnv(
   baseUrl: string,
   apiKey: string,
-  model: string
+  models: ClaudeCodeModels | string
 ): Record<string, string> {
-  const resolvedModel = model.trim() || CLAUDE_CODE_MODEL_PLACEHOLDER
+  const m = typeof models === 'string' ? { primary: models } : models
+  const primary = m.primary?.trim() || CLAUDE_CODE_MODEL_PLACEHOLDER
+  const sonnet = m.sonnet?.trim() || primary
+  const opus = m.opus?.trim() || primary
+  const haiku = m.haiku?.trim() || primary
+
   return {
     ANTHROPIC_BASE_URL: normalizeGatewayBaseUrl(baseUrl),
     ANTHROPIC_AUTH_TOKEN:
       formatGatewayApiKey(apiKey) || QUICK_SETUP_API_KEY_PLACEHOLDER,
-    ANTHROPIC_MODEL: resolvedModel,
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: resolvedModel,
-    ANTHROPIC_DEFAULT_SONNET_MODEL: resolvedModel,
-    ANTHROPIC_DEFAULT_OPUS_MODEL: resolvedModel,
-    ANTHROPIC_DEFAULT_FABLE_MODEL: resolvedModel,
+    ANTHROPIC_MODEL: primary,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: haiku,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: sonnet,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: opus,
+    ANTHROPIC_DEFAULT_FABLE_MODEL: haiku,
   }
 }
 
 export function buildClaudeCodeSnippet(input: {
   baseUrl: string
   apiKey: string
-  model: string
+  models: ClaudeCodeModels | string
   format: ClaudeCodeSnippetFormat
 }): string {
-  const env = claudeCodeEnv(input.baseUrl, input.apiKey, input.model)
+  const env = claudeCodeEnv(input.baseUrl, input.apiKey, input.models)
   if (input.format === 'shell') {
     return Object.entries(env)
-      .map(([key, value]) => `export ${key}='${value.replaceAll("'", "'\\''")}'`)
+      .map(
+        ([key, value]) => `export ${key}='${value.replaceAll("'", "'\\''")}'`
+      )
       .join('\n')
   }
   return `${JSON.stringify({ env }, null, 2)}\n`
@@ -112,12 +168,23 @@ export function buildClaudeCodeSnippet(input: {
 export function buildOpenCodeSnippet(input: {
   baseUrl: string
   apiKey: string
-  model: string
+  models: string[] | string
 }): string {
-  const resolvedModel = input.model.trim() || CLAUDE_CODE_MODEL_PLACEHOLDER
+  const modelList = Array.isArray(input.models)
+    ? input.models.filter(Boolean)
+    : [input.models].filter(Boolean)
+  const resolvedModels =
+    modelList.length > 0 ? modelList : [CLAUDE_CODE_MODEL_PLACEHOLDER]
+  const primaryModel = resolvedModels[0]
+
+  const modelsMap: Record<string, { name: string }> = {}
+  for (const m of resolvedModels) {
+    modelsMap[m] = { name: m }
+  }
+
   const config = {
     $schema: 'https://opencode.ai/config.json',
-    model: `${OPENCODE_PROVIDER_ID}/${resolvedModel}`,
+    model: `${OPENCODE_PROVIDER_ID}/${primaryModel}`,
     provider: {
       [OPENCODE_PROVIDER_ID]: {
         npm: '@ai-sdk/openai-compatible',
@@ -128,13 +195,38 @@ export function buildOpenCodeSnippet(input: {
             formatGatewayApiKey(input.apiKey) ||
             QUICK_SETUP_API_KEY_PLACEHOLDER,
         },
-        models: {
-          [resolvedModel]: {
-            name: resolvedModel,
-          },
-        },
+        models: modelsMap,
       },
     },
   }
   return `${JSON.stringify(config, null, 2)}\n`
+}
+
+export function buildOmpSnippet(input: {
+  baseUrl: string
+  apiKey: string
+  models: string[] | string
+}): string {
+  const modelList = Array.isArray(input.models)
+    ? input.models.filter(Boolean)
+    : [input.models].filter(Boolean)
+  const resolvedModels =
+    modelList.length > 0 ? modelList : [CLAUDE_CODE_MODEL_PLACEHOLDER]
+  const resolvedApiKey =
+    formatGatewayApiKey(input.apiKey) || QUICK_SETUP_API_KEY_PLACEHOLDER
+  const resolvedBaseUrl = openaiCompatibleBaseUrl(input.baseUrl)
+
+  const lines = [
+    'providers:',
+    `  ${OMP_PROVIDER_ID}:`,
+    `    baseUrl: ${resolvedBaseUrl}`,
+    '    api: openai-completions',
+    `    apiKey: ${resolvedApiKey}`,
+    '    models:',
+  ]
+  for (const m of resolvedModels) {
+    lines.push(`      - id: ${m}`)
+    lines.push(`        name: ${m}`)
+  }
+  return `${lines.join('\n')}\n`
 }

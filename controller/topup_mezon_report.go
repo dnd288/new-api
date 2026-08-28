@@ -115,7 +115,7 @@ func ExportMezonTopUpReport(c *gin.Context) {
 
 	// Table header
 	headers := []string{"Transaction ID", "Tx Hash", "Mezon User", "Email", "Amount (đồng)", "Time"}
-	widths := []float64{20, 105, 35, 62, 30, 25}
+	widths := []float64{30, 30, 65, 85, 37, 30}
 	pdf.SetFont(reportFontBold, "", 9)
 	pdf.SetFillColor(238, 238, 250)
 	for i, h := range headers {
@@ -129,7 +129,7 @@ func ExportMezonTopUpReport(c *gin.Context) {
 		ts := time.Unix(item.CompleteTime, 0).In(loc).Format("01-02 15:04")
 		cells := []string{
 			strconv.FormatInt(item.TransactionId, 10),
-			item.TxHash,
+			formatTxHashShort(item.TxHash),
 			truncate(pdf, item.UserName, widths[2]),
 			truncate(pdf, item.UserEmail, widths[3]),
 			formatDong(item.Amount),
@@ -197,4 +197,13 @@ func truncate(pdf *gofpdf.Fpdf, s string, maxWidth float64) string {
 		runes = runes[:len(runes)-1]
 	}
 	return string(runes) + "…"
+}
+
+// formatTxHashShort formats a transaction hash by keeping the first 6 and last 4 characters.
+func formatTxHashShort(hash string) string {
+	hash = strings.TrimSpace(hash)
+	if len(hash) <= 10 {
+		return hash
+	}
+	return hash[:6] + "..." + hash[len(hash)-4:]
 }

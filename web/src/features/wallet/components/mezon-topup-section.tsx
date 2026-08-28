@@ -225,12 +225,11 @@ export function MezonTopupSection({
           </div>
         )}
 
-        {txsFetched &&
-          recentTxs.filter((tx) => !tx.claimed).length === 0 && (
-            <p className='text-muted-foreground text-xs'>
-              {t('No unclaimed transactions found. Paste a hash manually.')}
-            </p>
-          )}
+        {txsFetched && recentTxs.filter((tx) => !tx.claimed).length === 0 && (
+          <p className='text-muted-foreground text-xs'>
+            {t('No unclaimed transactions found. Paste a hash manually.')}
+          </p>
+        )}
 
         {/* Hash input + Claim */}
         <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
