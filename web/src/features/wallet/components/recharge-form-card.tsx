@@ -51,8 +51,7 @@ import type {
   CreemProduct,
   WaffoPayMethod,
 } from '../types'
-import { CreemProductsSection } from './creem-products-section'
-import { MezonTopupSection } from './mezon-topup-section'
+import { VoucherSection } from './voucher-section'
 
 interface RechargeFormCardProps {
   topupInfo: TopupInfo | null
@@ -519,9 +518,9 @@ export function RechargeFormCard({
           </div>
         )}
 
-      {/* Mezon Đồng Section */}
+      {/* Mezon Đồng Voucher Section */}
       {hasMezonTopup && (
-        <MezonTopupSection
+        <VoucherSection
           treasuryAddress={mezonTreasuryAddress ?? ''}
           explorerUrl={mezonExplorerUrl}
           onClaim={onMezonClaim ?? (async () => false)}

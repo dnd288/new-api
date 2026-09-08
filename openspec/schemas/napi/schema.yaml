@@ -1,0 +1,73 @@
+name: napi
+version: 1
+description: "Feature, improvement, relay adapter, or billing change for new-api"
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: "What the change does and why"
+    template: proposal.md
+    instruction: |
+      Start with the user-visible behavior change. Name the relay/billing/model/controller/service
+      layers affected. State database compatibility (SQLite + MySQL + PostgreSQL). State relaykit
+      independence constraint if relaykit/ is affected.
+    requires: []
+  - id: specs
+    generates: specs.md
+    description: "Scenarios and expected behavior"
+    template: spec.md
+    instruction: |
+      Each scenario maps to a Go table test or vitest case.
+      Lines starting with *Test:* become test cases.
+      Cover billing overflow, database dialect differences, and relay pass-through when affected.
+    requires:
+      - proposal
+  - id: design
+    generates: design.md
+    description: "Implementation approach — packages, files, interfaces"
+    template: design.md
+    instruction: |
+      Name Go packages, files, and interfaces. For relay adapters specify adapter struct,
+      conversion format, stream support. For billing specify the quota chain from validation
+      to settle. For database changes specify migration and cross-dialect behavior.
+    requires:
+      - specs
+  - id: tasks
+    generates: tasks.md
+    description: "Ordered implementation steps"
+    template: tasks.md
+    instruction: |
+      Test-first order. Dependency order model → service → controller → relay → frontend.
+      Each task names the file it changes and the test that proves it.
+    requires:
+      - design
+  - id: verification
+    generates: verification.md
+    description: "Evidence that the change works"
+    template: verification.md
+    instruction: |
+      Paste RED test output then GREEN. Name databases tested (SQLite at minimum).
+      Name relay providers tested if applicable. Name what was NOT tested and why.
+    requires:
+      - tasks
+  - id: decision
+    generates: decision.md
+    description: "Architectural decision record (only for non-obvious choices)"
+    template: decision.md
+    instruction: |
+      Write a decision record only when this change makes a non-obvious or hard-to-reverse choice.
+      Otherwise write one line: "No ADR needed."
+
+      Seven sections: context, decision, rationale, alternatives, consequences, reversibility, status.
+      Reference AGENTS.md rules that constrain the choice.
+    requires:
+      - proposal
+
+apply:
+  requires:
+    - tasks
+  tracks: tasks.md
+  instruction: |
+    Build the change. Load `napi-spec-workflow` for the loop and `napi-tdd` for tests.
+
+    Write the failing test first, watch it fail, then implement. Fill `verification.md` from actual output.
+    Run `./scripts/guard.sh --static-only` after each significant change.

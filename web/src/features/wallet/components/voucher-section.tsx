@@ -34,24 +34,27 @@ import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 import { getMezonTransactions } from '../api'
 import type { MezonTransaction } from '../types'
+import { formatVoucherAmount, VOUCHER_DENOMINATIONS } from '../lib/vouchers'
 
-interface MezonTopupSectionProps {
+interface VoucherSectionProps {
   treasuryAddress: string
   explorerUrl?: string
   onClaim: (txHash: string) => Promise<boolean>
   claiming: boolean
 }
 
-export function MezonTopupSection({
+export function VoucherSection({
   treasuryAddress,
   explorerUrl,
   onClaim,
   claiming,
-}: MezonTopupSectionProps) {
+}: VoucherSectionProps) {
   const { t } = useTranslation()
+  const [selected, setSelected] = useState<number | null>(null)
   const [txHash, setTxHash] = useState('')
   const [copied, setCopied] = useState(false)
   const [recentTxs, setRecentTxs] = useState<MezonTransaction[]>([])
@@ -109,6 +112,10 @@ export function MezonTopupSection({
       ? `${treasuryAddress.slice(0, 8)}…${treasuryAddress.slice(-8)}`
       : treasuryAddress
 
+  const selectedVoucher = VOUCHER_DENOMINATIONS.find(
+    (voucher) => voucher.amount === selected
+  )
+
   return (
     <div className='space-y-2.5 border-t pt-4 sm:space-y-3 sm:pt-6'>
       <div className='flex items-center gap-2'>
@@ -119,6 +126,43 @@ export function MezonTopupSection({
           {t('Mezon Đồng')}
         </Label>
       </div>
+
+      {/* Voucher catalog */}
+      <div className='grid grid-cols-2 gap-2 sm:grid-cols-3'>
+        {VOUCHER_DENOMINATIONS.map((voucher) => {
+          const isSelected = selectedVoucher?.amount === voucher.amount
+          return (
+            <button
+              key={voucher.amount}
+              type='button'
+              aria-pressed={isSelected}
+              onClick={() => setSelected(voucher.amount)}
+              className={cn(
+                'overflow-hidden rounded-lg border p-0 transition',
+                isSelected
+                  ? 'border-primary ring-primary ring-2'
+                  : 'border-border hover:border-primary/50'
+              )}
+            >
+              <img
+                src={voucher.image}
+                alt={`${formatVoucherAmount(voucher.amount)} ${t('đồng')}`}
+                className='aspect-square w-full object-cover'
+                loading='lazy'
+              />
+            </button>
+          )
+        })}
+      </div>
+
+      <p className='text-muted-foreground text-xs sm:text-sm'>
+        {selectedVoucher
+          ? t(
+              'Transfer exactly {{amount}} đồng (1 đồng = 1 mzđ) from your bound Mezon wallet.',
+              { amount: formatVoucherAmount(selectedVoucher.amount) }
+            )
+          : t('Select a voucher to top up')}
+      </p>
 
       {/* QR Code Section */}
       <div className='border-primary/30 bg-primary/5 rounded-lg border border-dashed p-3 sm:p-4'>
@@ -140,11 +184,6 @@ export function MezonTopupSection({
           </div>
 
           <div className='flex-1 space-y-2 text-center sm:text-left'>
-            <p className='text-muted-foreground text-xs sm:text-sm'>
-              {t(
-                'Open Mezon App, scan this QR code, and specify the number of đồng to transfer (1 đồng = 1 mzđ).'
-              )}
-            </p>
             <div className='flex items-center justify-center gap-1.5 sm:justify-start'>
               <span className='text-muted-foreground truncate font-mono text-xs'>
                 {truncatedAddress}
