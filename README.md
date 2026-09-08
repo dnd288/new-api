@@ -282,7 +282,7 @@ docker run --name new-api -d --restart always \
 - [Response Interface (Responses)](https://docs.newapi.pro/en/docs/api/ai-model/chat/openai/createresponse)
 - [Image Interface (Image)](https://docs.newapi.pro/en/docs/api/ai-model/images/openai/post-v1-images-generations)
 - [Audio Interface (Audio)](https://docs.newapi.pro/en/docs/api/ai-model/audio/openai/create-transcription)
-- [Video Interface (Video)](https://docs.newapi.pro/en/docs/api/ai-model/audio/openai/createspeech)
+- [Video Interface (Video)](https://docs.newapi.pro/en/docs/api/ai-model/videos/sora/createvideo)
 - [Embedding Interface (Embeddings)](https://docs.newapi.pro/en/docs/api/ai-model/embeddings/createembedding)
 - [Rerank Interface (Rerank)](https://docs.newapi.pro/en/docs/api/ai-model/rerank/creatererank)
 - [Realtime Conversation (Realtime)](https://docs.newapi.pro/en/docs/api/ai-model/realtime/createrealtimesession)
@@ -327,6 +327,7 @@ docker run --name new-api -d --restart always \
 | `SQL_DSN` | Database connection string | - |
 | `REDIS_CONN_STRING` | Redis connection string | - |
 | `RELAY_IDLE_CONN_TIMEOUT` | Idle keep-alive timeout for relay HTTP clients, seconds. Defaults to Go standard library behavior; set `0` to disable | `90` |
+| `RELAY_RESPONSE_HEADER_TIMEOUT` | How long the relay waits for upstream **response headers**, seconds; set `0` to disable. Only bounds the header wait -- streaming after the headers arrive is unaffected. Note that non-streaming upstreams usually send headers only once generation finishes, so leave headroom | `1800` |
 | `STREAMING_TIMEOUT` | Streaming timeout (seconds) | `300` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | Max per-line buffer (MB) for the stream scanner; increase when upstream sends huge image/base64 payloads | `64` |
 | `MAX_REQUEST_BODY_MB` | Max request body size (MB, counted **after decompression**; prevents huge requests/zip bombs from exhausting memory). Exceeding it returns `413` | `32` |
@@ -461,12 +462,70 @@ See [User authentication and login sessions](./docs/authentication.md) for the t
 
 ### 🤝 Contribution Guide
 
-Welcome all forms of contribution!
+Welcome all forms of contribution! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 - 🐛 Report Bugs
 - 💡 Propose New Features
 - 📝 Improve Documentation
 - 🔧 Submit Code
+
+#### Local CI
+
+Run the full pipeline on your machine (requires Go 1.25+, Bun):
+
+```bash
+./scripts/ci-local.sh
+```
+
+Steps: static guard checks (including OpenSpec validate) → Go vet → build (root + relaykit) → Go tests → frontend typecheck + tests.
+
+For a shorter development loop:
+
+```bash
+./scripts/guard.sh --static-only   # credential, encoding/json, quota-cast, GORM-lock, OpenSpec
+go build ./... && make test
+```
+
+#### Guard Checks
+
+`scripts/guard.sh` runs static checks on **changed files** to catch new violations. With `--static-only` it skips build/test (used by `ci-local.sh`). Checks:
+
+| Check | What it catches |
+|-------|----------------|
+| Credentials | API keys, tokens, passwords in source |
+| encoding/json | Direct import (must use `common/json.go`) |
+| Quota cast | Bare `int()` on quota values (must use `common/quota_math.go`) |
+| GORM lock | Legacy v1 `Set("gorm:query_option")` (must use `lockForUpdate(tx)`) |
+| OpenSpec | Schema and change validation |
+
+#### Specifications (OpenSpec)
+
+Non-trivial changes are specified before they are built, using [OpenSpec](https://github.com/Fission-AI/OpenSpec) (pinned as a devDependency in `package.json`).
+
+```bash
+npx openspec change new <id>                  # feature (schema: napi)
+npx openspec change new <id> --schema bugfix  # defect
+npx openspec validate --all                   # validate all
+npx openspec list                             # list changes
+```
+
+Two schemas: `napi` (feature/improvement) and `bugfix` (defect). Config: `openspec/config.yaml`.
+
+#### Development Flow with GitHub Issues
+
+The preferred workflow syncs OpenSpec with GitHub issue tracking end-to-end:
+
+```bash
+/opsx:flow "add Mistral relay adapter"    # idea → issue → spec → implement → PR
+/opsx:flow #12                            # resume from existing issue
+/opsx:flow add-mistral-relay              # resume from change name
+```
+
+#### Agent Development
+
+This repository is configured for AI-assisted development. See [AGENTS.md](AGENTS.md) for agent
+instructions, [CONTEXT.md](CONTEXT.md) for the domain glossary, and `.agents/skills/` for
+task-specific procedures.
 
 ---
 

@@ -2,6 +2,38 @@
 
 DO NOT send optional commentary
 
+## Orientation
+
+| If you are... | Read |
+|---------------|------|
+| New to the project | [README.md](README.md) — features, setup, run |
+| Confused by a term | [CONTEXT.md](CONTEXT.md) — domain glossary |
+| Making a change | [CONTRIBUTING.md](CONTRIBUTING.md) — workflow, conventions |
+| Reviewing code | This file's Boundaries section + `napi-review` skill |
+| Fixing a defect | `napi-bugfix` skill |
+| Writing tests | `napi-tdd` skill |
+| Setting up locally | `napi-local-dev` skill |
+| Planning a feature | `napi-spec-workflow` skill |
+| Opening a PR | `napi-pr` skill |
+| Security review | `napi-security` skill |
+
+## Skills
+
+| Skill | Loads for | Owns |
+|-------|-----------|------|
+| `napi-local-dev` | Environment setup, first-time bootstrap, Docker, troubleshooting | Scenario selection, gotchas, idempotency verification |
+| `napi-bugfix` | Any non-obvious defect | 5-step loop (inspect→debug→impact→fix→verify), evidence discipline |
+| `napi-tdd` | Writing any test, deciding test mode | RED→GREEN cycle, Go testify patterns, vitest patterns, mode-to-claim mapping |
+| `napi-review` | Reviewing any change before merge | Correctness, architecture, security, billing safety, test quality axes |
+| `napi-spec-workflow` | Planning a feature or non-trivial change | OpenSpec propose→specify→design→tasks→apply→verify→archive loop |
+| `napi-pr` | Opening a pull request | PR types, commit messages, checklist, AI disclosure |
+| `napi-security` | Auth, billing, relay, database, or any security review | The six surfaces, controls, and known gaps |
+| `i18n-translate` | i18n translation work | Translation workflow |
+| `shadcn-ui` | Frontend component work | Component patterns |
+| `vercel-react-best-practices` | React best practices | React patterns |
+
+Skills live at `.agents/skills/<name>/SKILL.md`. They route to documents; they do not restate rules.
+
 ## Overview
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
@@ -62,6 +94,14 @@ web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 - A separate function is appropriate when it represents reusable behavior, a required interface/framework callback, an exported API, a test fixture, or complex business logic that deserves direct tests.
 - If a single-use helper is kept, its name must describe a durable domain concept rather than a mechanical step extracted only to shorten the caller.
 
+### Authentication Security (OWASP Mandatory)
+
+- Any implementation, modification, or review involving authentication-related flows MUST comply with the applicable requirements of the latest stable [OWASP Application Security Verification Standard (ASVS)](https://owasp.org/www-project-application-security-verification-standard/) and the relevant [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/). This applies to both backend and frontend changes, including registration, login/logout, password changes and recovery, email verification, MFA, WebAuthn/Passkeys, OAuth/OIDC, account linking/unlinking, sessions, JWTs, API credentials, and re-authentication for sensitive actions.
+- Before changing these flows, read the applicable OWASP guidance, starting with the [Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) and [Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html). Consult the password storage, forgot password, MFA, OAuth, and CSRF guidance when those mechanisms are involved. Identify the applicable controls before implementation; existing code is not a justification for retaining or introducing an insecure pattern.
+- Enforce security controls on the server. Apply the relevant requirements for credential storage and transport, resistance to account enumeration and brute force, CSRF and replay protection, token/challenge expiry and single use where required, protocol-specific verification, session rotation and invalidation, and re-authentication for sensitive account changes. Frontend checks MUST NOT substitute for server-side enforcement, and recovery or alternative login paths MUST NOT bypass the required authentication assurance.
+- Authentication audit events MUST exclude passwords, verification codes, recovery codes, private keys, and usable session or authentication tokens. Record enough non-secret context to investigate authentication failures and sensitive account changes.
+- Verify affected security controls with focused regression tests, including applicable failure, expiry, replay, and bypass cases, following the existing backend/frontend test conventions. Record the OWASP references (including the ASVS version and requirement IDs when used), validation performed, and any unresolved gaps in the change summary or PR description. Do not claim compliance or completion while an applicable security requirement remains unmet or unverified.
+
 ### Backend Rules
 
 **relaykit module independence:** The `relaykit/` Go module MUST remain independently buildable.
@@ -81,6 +121,11 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 **Database compatibility:** All database code MUST work with SQLite, MySQL >= 5.7.8, and PostgreSQL >= 9.6 simultaneously.
 
+- Any change that can affect database behavior MUST be verified before the work is considered complete. This includes ORM/database-driver dependency changes, connection/DSN/protocol or prepared-statement configuration, models and GORM tags, migrations and `AutoMigrate`, constraints and indexes, `Scanner`/`Valuer`/serializer behavior, raw SQL, transactions, and row locking.
+- Required database verification MUST exercise real SQLite, MySQL, and PostgreSQL instances. Unit tests, mocks, a successful build, code inspection, or testing only one dialect are not substitutes. Use at least one supported version of each engine; changes that depend on version-specific behavior must also cover the minimum supported version.
+- Treat GORM core and its database dialect/driver packages as a compatible version set. Any change to one of them requires checking upstream compatibility and running the complete three-database verification matrix; do not upgrade only the core package and infer that existing drivers remain compatible.
+- Schema or migration changes MUST be tested both on a fresh database and by upgrading a representative database created by the latest released version. Run startup/migration at least twice to prove idempotency, and verify that existing data, indexes, constraints, and uniqueness guarantees are preserved. Cover the separately configured log database when the affected path is shared with or used by it.
+- Record the exact database versions, commands, and results in the final handoff or pull request. If any required database verification cannot be run, report the blocker explicitly and do not claim the change is database-compatible or complete.
 - Prefer GORM methods (`Create`, `Find`, `Where`, `Updates`, etc.) over raw SQL.
 - Let GORM handle primary key generation; do not use `AUTO_INCREMENT` or `SERIAL` directly.
 - Standard `SELECT ... FOR UPDATE` row locks built with GORM query methods in `model/` MUST use `lockForUpdate(tx)`. Do not use the legacy GORM v1 pattern `tx.Set("gorm:query_option", "FOR UPDATE")`, because GORM v2 silently ignores it and no lock is acquired. Do not duplicate `clause.Locking{Strength: "UPDATE"}` at call sites; the shared helper emits `FOR UPDATE` for MySQL/PostgreSQL and skips it for SQLite, where the syntax is unsupported. Dialect-specific locking with different semantics (for example, a MySQL next-key/gap lock) may use raw SQL only behind explicit database-type branches with valid fallbacks for every supported database.
@@ -102,6 +147,8 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 **Billing expression system:** When working on tiered/dynamic billing (expression-based pricing), MUST read `pkg/billingexpr/expr.md` first. It documents the design philosophy, expression language, full architecture, token normalization rules, quota conversion, and expression versioning. All billing expression changes must follow that document.
 
+**Built-in model pricing:** New built-in model prices MUST be defined as self-contained billing expressions in `setting/billing_setting/builtin_billing.go`, using real USD per million tokens. Do not add new built-in prices to the legacy model/completion/cache ratio tables. Preserve explicit administrator pricing overrides. Existing legacy prices are migrated only when explicitly requested. Verify published prices and cover applicable context-length thresholds and cache categories.
+
 **Billing safety invariants:** Quota/billing code MUST never produce a negative charge (a credit) from arithmetic overflow or unvalidated input. Apply defense in depth:
 
 - Every user-controlled quantity that becomes a billing multiplier (image `n`, video `seconds`/`duration`, resolution/quality ratios, batch counts) MUST be bounded before it reaches quota calculation. Reject out-of-range values at request validation with a 400. Existing bounds: `dto.MaxImageN` for image generation count, `relaycommon.MaxTaskDurationSeconds` for task video duration, `maxTokensLimit` (`relay/helper/valid_request.go`) for `max_tokens`-family fields on every relay format (OpenAI, Claude, Gemini, Responses). Reuse these constants instead of introducing new ad hoc limits for the same concepts. When adding a new relay format or request DTO, bound its max-tokens and count fields in its validator from day one.
@@ -116,6 +163,7 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 **Backend test quality:** Backend tests must protect real behavior, API contracts, billing/accounting invariants, data compatibility, or regression paths.
 
+- **Do not scatter tests for a small change:** For a focused feature or fix, extend an existing suitable test file first. If a new test file is necessary, add at most one and consolidate the key regression cases there. MUST NOT create separate test files for the same small feature across `controller/`, `service/`, `setting/`, or other layers merely because its call chain crosses those layers. Do not repeat fixtures and assertions at each layer. Keep the cases compact and focused on observable behavior; the number of production files touched is not a reason to add more test files.
 - Do not add tests that only improve coverage numbers, prove that code happens to run, or lock in implementation details without a user-visible or cross-module contract.
 - Avoid fake fuzz/stress/smoke/performance tests built from random inputs, large loop counts, sleeps, timing comparisons, or log-only assertions.
 - Avoid duplicate tests that exercise the same branch with different names but no new invariant.
@@ -127,8 +175,13 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 - Avoid hand-written assertion helpers unless they encode a reusable project-specific invariant.
 - When cleaning tests, preserve meaningful regression coverage. If a deleted test covered a real contract indirectly, replace it with a smaller test that asserts that contract directly.
 
+**Documentation files:** Do NOT add new files under `docs/` or any of its subdirectories unless the user explicitly requests it.
+
 ### Frontend Rules
 
+- **Reuse existing UI components first (mandatory):** Before implementing or changing frontend UI, read `web/AGENTS.md` and the project `shadcn-ui` skill, search `web/src/components/` and the relevant feature for existing components, and read matching implementations and call sites. Do not start from custom markup or registry installation without checking the repository first.
+- Prefer the project's shared business components over lower-level UI primitives when they cover the use case. Evaluate existing props, composition, and a compatible extension before introducing a replacement. Importing `Button` or `AlertDialog` does not satisfy this rule if the same behavior is already provided by a shared component such as `CopyButton` or `ConfirmDialog`.
+- New implementations of common UI behavior require a concrete capability gap: identify the existing candidates and explain why reuse, composition, or a compatible extension is unsuitable in the change summary or PR description. Different text, dimensions, colors, or feature location alone do not justify duplication. Feature components may compose shared components with business data and actions. Follow the reuse workflow and component entry points in `web/AGENTS.md`; generic library or registry guidance does not override this project-specific priority.
 - Use `bun` as the preferred package manager and script runner for the frontend (`web/`):
   - `bun install` for dependency installation
   - `bun run dev` for development server
@@ -155,4 +208,48 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 
 - First compare the current git user (`git config user.name` / `git config user.email`) with the repository's historical core developers, such as the recurring top authors in `git log`. Do not change git config.
 - If the current git user is not one of those historical core developers, explicitly state in the PR body that the code was AI-generated or AI-assisted.
-- Fill `.agents/github/PR.md` as the entire PR body. Do not use `.github/PULL_REQUEST_TEMPLATE.md` or `.github/PULL_REQUEST_TEMPLATE/en.md`.
+- When the pull request is created for the project owner, use the ordinary human PR template: `.github/PULL_REQUEST_TEMPLATE.md` for Chinese requests or `.github/PULL_REQUEST_TEMPLATE/en.md` for English requests. Project-owner pull requests MUST NOT use `.agents/github/PR.md` unless the owner explicitly asks for it.
+- For all other agent-created pull requests, fill `.agents/github/PR.md` as the entire PR body. Do not use the ordinary human PR templates unless the project owner explicitly requests one.
+
+## Specifications and Decisions
+
+Anything user-visible or spanning more than one directory gets a specification in
+[openspec/](openspec/) before it gets code. A non-obvious technical choice gets a record in
+`docs/adr/`, including the alternatives rejected and what would reverse the decision.
+
+Changes are managed by [OpenSpec](https://github.com/Fission-AI/OpenSpec), pinned as a
+devDependency in `package.json`. Two typed schemas:
+
+| Schema | For | Key artifacts |
+|--------|-----|---------------|
+| `napi` | Feature, improvement, relay adapter, billing change | proposal, specs, design, tasks, verification, decision |
+| `bugfix` | Defect whose cause is not obvious | report, diagnosis, tasks, verification |
+
+```bash
+# Feature (default schema)
+npx openspec change new <id>
+
+# Defect
+npx openspec change new <id> --schema bugfix
+```
+
+**Always pass `--schema` for bugfix.** `napi-spec-workflow` owns the loop end to end.
+
+Copy changes and defects whose cause is obvious from the symptom still go straight to a pull
+request. `openspec validate --all` runs in the guard checks and CI.
+
+Before marking work ready: `./scripts/ci-local.sh` or at minimum `go build ./... && make test`
+must be green. Do not claim something works if you have not run it.
+
+## Git
+
+- Work is tracked as a **GitHub issue**, and a pull request links the issue it finishes
+  (`Closes #N`). The issue tracks; `openspec/` specifies.
+- The preferred flow is `/opsx:flow`: idea → issue → propose → implement → PR → report.
+  It keeps the issue updated at each phase.
+- Branch from `main` as `feature/<description>` or `fix/<description>`.
+- Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `perf:`.
+  Scope: `relay`, `model`, `controller`, `service`, `middleware`, `billing`, `auth`, `web`,
+  `i18n`, `ci`, `docs`, `relaykit`, `oauth`, `setting`.
+- Never commit a credential. If one leaks, rotate it immediately.
+- AI-generated PRs must disclose AI assistance in the body.
