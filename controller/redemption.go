@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
@@ -191,6 +192,55 @@ func UpdateRedemption(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    cleanRedemption,
+	})
+	return
+}
+
+// sendRedemptionToOrderMaxLength bounds the free-form order id stored with a
+// redemption code so bot-provided strings cannot bloat rows.
+const sendRedemptionToOrderMaxLength = 128
+
+type sendRedemptionRequest struct {
+	OrderId string `json:"order_id"`
+}
+
+// SendRedemption marks a redemption code as used for the given order and
+// records the order id, then returns the code so the caller can deliver it.
+func SendRedemption(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiError(c, errors.New("无效的兑换码 ID"))
+		return
+	}
+	req := sendRedemptionRequest{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.OrderId = strings.TrimSpace(req.OrderId)
+	if req.OrderId == "" {
+		common.ApiError(c, errors.New("订单号不能为空"))
+		return
+	}
+	if utf8.RuneCountInString(req.OrderId) > sendRedemptionToOrderMaxLength {
+		common.ApiError(c, errors.New("订单号过长"))
+		return
+	}
+	redemption, err := model.SendRedemptionToOrder(id, req.OrderId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	// Never audit the redemption key itself — it is a redeemable secret.
+	recordManageAudit(c, "redemption.send", map[string]interface{}{
+		"name":     redemption.Name,
+		"quota":    logger.LogQuota(redemption.Quota),
+		"order_id": req.OrderId,
+	})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    redemption,
 	})
 	return
 }
