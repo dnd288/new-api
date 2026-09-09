@@ -82,6 +82,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	modelPrice, usePrice := ratio_setting.GetModelPrice(billingModelName, false)
 
 	groupRatioInfo := HandleGroupRatio(c, info)
+	minimumCharge := billing_setting.MinimumChargeEnabled(billingModelName)
 
 	// Check if this model uses tiered_expr billing
 	if billing_setting.GetBillingMode(billingModelName) == billing_setting.BillingModeTieredExpr {
@@ -171,6 +172,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CacheCreation5mRatio: cacheCreationRatio5m,
 		CacheCreation1hRatio: cacheCreationRatio1h,
 		QuotaToPreConsume:    preConsumedQuota,
+		MinimumCharge:        minimumCharge,
 	}
 	if usePrice {
 		for name, ratio := range meta.BillingRatios {
@@ -183,6 +185,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		}
 		priceData.QuotaToPreConsume = quota
 	}
+	priceData.QuotaToPreConsume = billing_setting.ApplyMinimumCharge(priceData.QuotaToPreConsume, minimumCharge)
 
 	if common.DebugEnabled {
 		logger.LogDebug(c, "model_price_helper result: %s", priceData.ToSetting())
@@ -194,6 +197,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hosttypes.PriceData, error) {
 	groupRatioInfo := HandleGroupRatio(c, info)
+	minimumCharge := billing_setting.MinimumChargeEnabled(info.OriginModelName)
 
 	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
 	usePrice := success
@@ -254,6 +258,7 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 		ModelPrice:     modelPrice,
 		ModelRatio:     modelRatio,
 		UsePrice:       usePrice,
+		MinimumCharge:  minimumCharge,
 		Quota:          quota,
 		GroupRatioInfo: groupRatioInfo,
 	}
@@ -349,6 +354,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 	if err != nil {
 		return hosttypes.PriceData{}, err
 	}
+	preConsumedQuota = billing_setting.ApplyMinimumCharge(preConsumedQuota, billing_setting.MinimumChargeEnabled(billingModelName))
 
 	freeModel := false
 	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume {
@@ -379,6 +385,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 	priceData := hosttypes.PriceData{
 		FreeModel:         freeModel,
 		GroupRatioInfo:    groupRatioInfo,
+		MinimumCharge:     billing_setting.MinimumChargeEnabled(billingModelName),
 		QuotaToPreConsume: preConsumedQuota,
 	}
 

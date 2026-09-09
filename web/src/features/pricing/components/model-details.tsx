@@ -611,7 +611,7 @@ function ModelHeader(props: { model: PricingModel }) {
   const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 20) : null
   const description = model.description || model.vendor_description || null
   const statusQuery = useModelStatus()
-  const modelStatus = statusQuery.data?.data?.models.find(
+  const modelStatus = statusQuery.data?.data?.models?.find(
     (entry) => entry.name === model.model_name
   )
 

@@ -18,6 +18,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestApplyMinimumCharge(t *testing.T) {
+	tests := []struct {
+		name    string
+		quota   int
+		enabled bool
+		want    int
+	}{
+		{name: "disabled", quota: 4, enabled: false, want: 4},
+		{name: "zero remains free", quota: 0, enabled: true, want: 0},
+		{name: "positive below minimum", quota: 1, enabled: true, want: 10},
+		{name: "minimum boundary", quota: 10, enabled: true, want: 10},
+		{name: "above minimum", quota: 11, enabled: true, want: 11},
+		{name: "maximum quota", quota: common.MaxQuota, enabled: true, want: common.MaxQuota},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, billing_setting.ApplyMinimumCharge(tt.quota, tt.enabled))
+		})
+	}
+}
+
 func TestGPT6AstraBuiltinBilling(t *testing.T) {
 	settings := config.GlobalConfig.Get("billing_setting").(*billing_setting.BillingSetting)
 	saved := *settings

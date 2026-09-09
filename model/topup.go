@@ -406,32 +406,6 @@ func GetAllTopUps(pageInfo *common.PageInfo) (topups []*TopUp, total int64, err 
 // 防止对超大表执行无界 COUNT 触发 DoS。
 const searchTopUpCountHardLimit = 10000
 
-// MezonTopUpReportRow is one row of the admin Mezon đồng monthly report.
-type MezonTopUpReportRow struct {
-	Id           int64
-	UserId       int
-	Username     string
-	DisplayName  string
-	Email        string
-	TradeNo      string
-	Dong         int64
-	CompleteTime int64
-}
-
-// GetMezonTopUpReport returns successful Mezon đồng top-ups whose completion
-// time falls in [startTime, endTime), joined with the topping-up user,
-// ordered chronologically for statement-style export.
-func GetMezonTopUpReport(startTime, endTime int64) (rows []*MezonTopUpReportRow, err error) {
-	err = DB.Table("top_ups").
-		Select("top_ups.id, top_ups.user_id, users.username, users.display_name, users.email, top_ups.trade_no, top_ups.amount as dong, top_ups.complete_time").
-		Joins("LEFT JOIN users ON users.id = top_ups.user_id").
-		Where("top_ups.payment_method = ? AND top_ups.status = ? AND top_ups.complete_time >= ? AND top_ups.complete_time < ?",
-			PaymentMethodMezon, common.TopUpStatusSuccess, startTime, endTime).
-		Order("top_ups.complete_time asc, top_ups.id asc").
-		Scan(&rows).Error
-	return rows, err
-}
-
 // SearchUserTopUps 按订单号搜索某用户的充值记录
 func SearchUserTopUps(userId int, keyword string, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
 	tx := DB.Begin()

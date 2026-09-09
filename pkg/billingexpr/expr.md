@@ -18,6 +18,10 @@ The expression is the billing contract between the administrator and the system.
 
 5. **Version-aware** — Expressions carry a version tag (`v1:`, default when omitted). The version controls the compile environment, token normalization, and quota conversion formula, enabling future evolution without breaking existing expressions.
 
+### Host-side per-model minimum charge
+
+Administrators can opt a model into `billing_setting.minimum_charge`. This host-side policy is orthogonal to the expression: after the complete positive request charge is calculated (including group ratio and surcharges), quota values below 10 are floored to 10. Zero remains zero. The resolved flag is applied to pre-consume and settlement and is snapshotted for asynchronous tasks so configuration changes cannot alter an in-flight request.
+
 ---
 
 ## Expression Language

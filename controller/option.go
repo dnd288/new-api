@@ -86,7 +86,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" {
+		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" || k == billing_setting.MinimumChargeOptionKey {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -109,9 +109,10 @@ func GetOptions(c *gin.Context) {
 	common.OptionMapRWMutex.Unlock()
 	// Display the same effective expressions used by pricing and settlement,
 	// including built-in defaults absent from persisted administrator options.
-	for key, values := range map[string]map[string]string{
-		"billing_setting.billing_mode": billing_setting.GetBillingModeCopy(),
-		"billing_setting.billing_expr": billing_setting.GetBillingExprCopy(),
+	for key, values := range map[string]any{
+		"billing_setting.billing_mode":         billing_setting.GetBillingModeCopy(),
+		"billing_setting.billing_expr":         billing_setting.GetBillingExprCopy(),
+		billing_setting.MinimumChargeOptionKey: billing_setting.GetMinimumChargeCopy(),
 	} {
 		encoded, err := common.Marshal(values)
 		if err != nil {

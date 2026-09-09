@@ -745,6 +745,7 @@ func executeTaskSubmissionWith(
 		OtherRatios:     relayInfo.PriceData.OtherRatios(),
 		OriginModelName: relayInfo.OriginModelName,
 		PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
+		MinimumCharge:   relayInfo.PriceData.MinimumCharge,
 		TieredSnapshot:  relayInfo.TieredBillingSnapshot,
 	}
 	task.Quota = result.Quota

@@ -51,8 +51,8 @@ import type {
   CreemProduct,
   WaffoPayMethod,
 } from '../types'
+import { VoucherSection } from './voucher-section'
 import { CreemProductsSection } from './creem-products-section'
-import { MezonTopupSection } from './mezon-topup-section'
 
 interface RechargeFormCardProps {
   topupInfo: TopupInfo | null
@@ -82,11 +82,6 @@ interface RechargeFormCardProps {
   waffoMinTopup?: number
   onWaffoMethodSelect?: (method: WaffoPayMethod, index: number) => void
   enableWaffoPancakeTopup?: boolean
-  enableMezonTopup?: boolean
-  mezonTreasuryAddress?: string
-  mezonExplorerUrl?: string
-  onMezonClaim?: (txHash: string) => Promise<boolean>
-  mezonClaiming?: boolean
 }
 
 export function RechargeFormCard({
@@ -117,11 +112,6 @@ export function RechargeFormCard({
   waffoMinTopup,
   onWaffoMethodSelect,
   enableWaffoPancakeTopup,
-  enableMezonTopup,
-  mezonTreasuryAddress,
-  mezonExplorerUrl,
-  onMezonClaim,
-  mezonClaiming,
 }: RechargeFormCardProps) {
   const { t } = useTranslation()
   const [localAmount, setLocalAmount] = useState(topupAmount.toString())
@@ -146,12 +136,7 @@ export function RechargeFormCard({
     topupInfo?.enable_stripe_topup ||
     enableWaffoTopup ||
     enableWaffoPancakeTopup
-  const hasMezonTopup = !!(
-    enableMezonTopup &&
-    mezonTreasuryAddress &&
-    onMezonClaim
-  )
-  const hasAnyTopup = hasConfigurableTopup || enableCreemTopup || hasMezonTopup
+  const hasAnyTopup = hasConfigurableTopup || enableCreemTopup
   const hasStandardPaymentMethods =
     Array.isArray(topupInfo?.pay_methods) && topupInfo.pay_methods.length > 0
   const hasWaffoPaymentMethods =
@@ -519,15 +504,8 @@ export function RechargeFormCard({
           </div>
         )}
 
-      {/* Mezon Đồng Section */}
-      {hasMezonTopup && (
-        <MezonTopupSection
-          treasuryAddress={mezonTreasuryAddress ?? ''}
-          explorerUrl={mezonExplorerUrl}
-          onClaim={onMezonClaim ?? (async () => false)}
-          claiming={mezonClaiming ?? false}
-        />
-      )}
+      {/* Mezon Đồng Voucher Section */}
+      <VoucherSection />
 
       {/* Redemption Code Section */}
       {redemptionEnabled ? (

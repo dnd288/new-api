@@ -61,6 +61,15 @@ describe('shared model pricing', () => {
     ).toHaveProperty('ModelPrice', 0)
   })
 
+  it('round-trips the minimum charge policy independently of pricing mode', () => {
+    const values = {
+      ModelRatio: 1,
+      'billing_setting.billing_mode': 'ratio',
+      'billing_setting.minimum_charge': true,
+    }
+    expect(pricingFromDraft(pricingRow('example', values))).toEqual(values)
+  })
+
   it('keeps token and task expressions intact through both editing and sync', () => {
     for (const expression of [
       'len <= 200000 ? tier("short", p * 2 + cr * 0.2 + cc * 2.5) : tier("long", p * 4)',

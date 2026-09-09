@@ -39,8 +39,6 @@ export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
   url?: string
 }
 export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
-export type AffiliateCodeResponse = ApiResponse<string>
-export type AffiliateTransferResponse = ApiResponse
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
 export type WaffoPaymentResponse = ApiResponse<
   { payment_url?: string } | string
@@ -60,35 +58,6 @@ export type WaffoPancakePaymentResponse = ApiResponse<
   | string
 >
 
-/**
- * Mezon đồng top-up claim response data
- */
-export interface MezonPaymentResult {
-  /** Quota credited to the account */
-  quota_added: number
-  /** Transferred đồng amount redeemed */
-  dong: number
-  /** Credited mzđ amount (1:1 with dong) */
-  mzd?: number
-}
-export type MezonPaymentResponse = ApiResponse<MezonPaymentResult>
-
-/**
- * Mezon transaction from the indexer (user → treasury)
- */
-export interface MezonTransaction {
-  /** Transaction hash */
-  hash: string
-  /** Raw on-chain value (6 decimals) */
-  value: string
-  /** Whole đồng amount */
-  dong: number
-  /** Block timestamp in seconds */
-  timestamp: number
-  /** Whether this tx has already been claimed */
-  claimed: boolean
-}
-export type MezonTransactionsResponse = ApiResponse<MezonTransaction[]>
 
 /**
  * Creem product configuration
@@ -249,14 +218,6 @@ export interface AmountRequest {
 }
 
 /**
- * Affiliate quota transfer request
- */
-export interface AffiliateTransferRequest {
-  /** Quota amount to transfer */
-  quota: number
-}
-
-/**
  * User wallet data
  */
 export interface UserWalletData {
@@ -276,8 +237,6 @@ export interface UserWalletData {
   aff_history_quota: number
   /** Number of successful affiliate invites */
   aff_count: number
-  /** User group */
-  group: string
 }
 
 /**

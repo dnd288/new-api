@@ -1,0 +1,47 @@
+name: bugfix
+version: 1
+description: "Defect whose cause is not obvious from the symptom"
+artifacts:
+  - id: report
+    generates: report.md
+    description: "What went wrong — symptom, impact, evidence"
+    template: report.md
+    instruction: |
+      Do not invent a cause. State only what the evidence shows. Quote the error message or
+      unexpected output. Name the database backend where it reproduces.
+    requires: []
+  - id: diagnosis
+    generates: diagnosis.md
+    description: "Root cause analysis with evidence"
+    template: diagnosis.md
+    instruction: |
+      Every claim carries the observation (log line, test output, stack trace) that proves it.
+      Trace the code path from entry point to failure. Name the database backend(s) where it reproduces.
+    requires:
+      - report
+  - id: tasks
+    generates: tasks.md
+    description: "Ordered fix steps"
+    template: tasks.md
+    instruction: |
+      Test-first. Write the failing test that demonstrates the defect, then fix.
+      Name the file and the test for each step.
+    requires:
+      - diagnosis
+  - id: verification
+    generates: verification.md
+    description: "Evidence that the fix works"
+    template: verification.md
+    instruction: |
+      Paste RED test output then GREEN. Name databases tested. Name what was NOT tested and why.
+    requires:
+      - tasks
+
+apply:
+  requires:
+    - tasks
+  tracks: tasks.md
+  instruction: |
+    Fix the defect. Load `napi-bugfix` for the loop and `napi-tdd` for tests.
+
+    Write the failing test first, watch it fail, then fix. Fill `verification.md` from actual output.

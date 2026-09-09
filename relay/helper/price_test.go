@@ -20,6 +20,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestModelPriceHelperAppliesMinimumChargeToPreConsume(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	savedConfig := config.GlobalConfig.ExportAllConfigs()
+	savedRatios := ratio_setting.ModelRatio2JSONString()
+	savedGroupRatios := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(savedConfig))
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(savedGroupRatios))
+	})
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		billing_setting.MinimumChargeOptionKey: `{"minimum-ratio-model":true}`,
+		"group_ratio_setting.group_ratio":      `{"default":1}`,
+	}))
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"minimum-ratio-model":0.002}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("group", "default")
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "minimum-ratio-model",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+	}
+	priceData, err := ModelPriceHelper(ctx, info, 1, &types.TokenCountMeta{})
+
+	require.NoError(t, err)
+	assert.True(t, priceData.MinimumCharge)
+	assert.Equal(t, 10, priceData.QuotaToPreConsume)
+}
+
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

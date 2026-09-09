@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -262,6 +263,8 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	if actualQuota < 0 {
 		return
 	}
+	minimumCharge := task.PrivateData.BillingContext != nil && task.PrivateData.BillingContext.MinimumCharge
+	actualQuota = billing_setting.ApplyMinimumCharge(actualQuota, minimumCharge)
 	preConsumedQuota := task.Quota
 	quotaDelta := actualQuota - preConsumedQuota
 

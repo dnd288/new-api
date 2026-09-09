@@ -22,7 +22,6 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
-  FileSpreadsheet,
   FlaskConical,
   Key,
   LayoutDashboard,
@@ -157,11 +156,6 @@ export function useSidebarData(): SidebarData {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
-          },
-          {
-            title: t('Mezon Top-up Reports'),
-            url: '/topup-reports',
-            icon: FileSpreadsheet,
           },
           {
             title: t('System Info'),

@@ -167,6 +167,17 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
                 {formatQuota(redemption.quota)}
               </span>
             </div>
+            {redemption.order_id ? (
+              <div className='flex items-center justify-between gap-2 text-xs'>
+                <span className='text-muted-foreground'>{t('Order ID')}</span>
+                <span
+                  className='truncate font-medium'
+                  title={redemption.order_id}
+                >
+                  {redemption.order_id}
+                </span>
+              </div>
+            ) : null}
           </div>
         )
       })}

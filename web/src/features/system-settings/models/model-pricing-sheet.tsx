@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next'
 import { sideDrawerContentClassName } from '@/components/drawer-layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
   FieldDescription,
@@ -51,6 +52,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
+import { Label } from '@/components/ui/label'
 import {
   Sheet,
   SheetContent,
@@ -183,6 +185,7 @@ export const ModelPricingEditorPanel = forwardRef<
   const { t } = useTranslation()
   const promptPriceId = useId()
   const formElementRef = useRef<HTMLFormElement>(null)
+  const minimumChargeId = useId()
   const currencyConfig = useSystemConfigStore((state) => state.config.currency)
   const preference = usePricingPreferencesStore((state) => state.currency)
   const siteCurrency = useMemo(
@@ -204,6 +207,7 @@ export const ModelPricingEditorPanel = forwardRef<
   const [billingExpr, setBillingExpr] = useState('')
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
   const [editorReloadToken, setEditorReloadToken] = useState(0)
+  const [minimumCharge, setMinimumCharge] = useState(false)
   const autoSwitchedForRef = useRef<string | null>(null)
   const isEditMode = !!editData
   const { models: pricingModels } = usePricingData()
@@ -286,6 +290,7 @@ export const ModelPricingEditorPanel = forwardRef<
       setPricingMode(nextPricingMode)
       setBillingExpr(editData.billingExpr || '')
       setRequestRuleExpr(editData.requestRuleExpr || '')
+      setMinimumCharge(editData.minimumCharge === true)
     } else {
       form.reset({
         name: '',
@@ -301,6 +306,7 @@ export const ModelPricingEditorPanel = forwardRef<
       setPricingMode('per-token')
       setBillingExpr('')
       setRequestRuleExpr('')
+      setMinimumCharge(false)
     }
 
     setPromptPrice(nextLaneState.promptPrice)
@@ -331,7 +337,8 @@ export const ModelPricingEditorPanel = forwardRef<
       form.formState.isDirty ||
         pricingMode !== originalMode ||
         billingExpr !== (editData?.billingExpr ?? '') ||
-        requestRuleExpr !== (editData?.requestRuleExpr ?? '')
+        requestRuleExpr !== (editData?.requestRuleExpr ?? '') ||
+        minimumCharge !== (editData?.minimumCharge ?? false)
     )
   }, [
     onDirtyChange,
@@ -340,6 +347,7 @@ export const ModelPricingEditorPanel = forwardRef<
     billingExpr,
     requestRuleExpr,
     editData,
+    minimumCharge,
   ])
 
   const setFormValue = (field: keyof ModelPricingFormValues, value: string) => {
@@ -590,6 +598,7 @@ export const ModelPricingEditorPanel = forwardRef<
         imageRatio: values.imageRatio || '',
         audioRatio: values.audioRatio || '',
         audioCompletionRatio: values.audioCompletionRatio || '',
+        minimumCharge,
       }
 
       if (pricingMode === 'tiered_expr') {
@@ -599,7 +608,7 @@ export const ModelPricingEditorPanel = forwardRef<
 
       return data
     },
-    [pricingMode, requestRuleExpr, resolvedBillingExpr]
+    [minimumCharge, pricingMode, requestRuleExpr, resolvedBillingExpr]
   )
 
   useImperativeHandle(
@@ -697,6 +706,29 @@ export const ModelPricingEditorPanel = forwardRef<
                 )}
 
                 <PricingCurrencySelector siteCurrency={siteCurrency} />
+
+                <Field className='rounded-lg border p-3'>
+                  <div className='flex items-start gap-3'>
+                    <Checkbox
+                      id={minimumChargeId}
+                      className='mt-0.5'
+                      checked={minimumCharge}
+                      onCheckedChange={(checked) =>
+                        setMinimumCharge(checked === true)
+                      }
+                    />
+                    <div className='grid gap-1'>
+                      <Label htmlFor={minimumChargeId}>
+                        {t('Minimum charge')}
+                      </Label>
+                      <FieldDescription>
+                        {t(
+                          'Charge at least 10 quota for each successful billable request. Free requests remain free.'
+                        )}
+                      </FieldDescription>
+                    </div>
+                  </div>
+                </Field>
 
                 <Tabs
                   key={editorReloadToken}
