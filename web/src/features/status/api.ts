@@ -39,7 +39,8 @@ export type ModelStatusData = {
   success: boolean
   message?: string
   data: {
-    models: ModelStatusEntry[]
+    /** Older deployments omit the list; consumers must treat it as absent. */
+    models?: ModelStatusEntry[]
   }
 }
 
