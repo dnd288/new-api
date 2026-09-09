@@ -17,13 +17,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table } from '@tanstack/react-table'
+import { Send } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
+import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 import type { Redemption } from '../types'
+import { useRedemptions } from './redemptions-provider'
 
 type DataTableBulkActionsProps<TData> = {
   table: Table<TData>
@@ -33,7 +41,10 @@ export function DataTableBulkActions<TData>({
   table,
 }: DataTableBulkActionsProps<TData>) {
   const { t } = useTranslation()
+  const { setOpen, setCurrentRow } = useRedemptions()
   const selectedRows = table.getSelectedRowModel().rows
+  const singleSelected =
+    selectedRows.length === 1 ? (selectedRows[0].original as Redemption) : null
 
   const contentToCopy = useMemo(() => {
     const selectedCodes = selectedRows.map((row) => {
@@ -54,6 +65,31 @@ export function DataTableBulkActions<TData>({
         successTooltip={t('Codes copied!')}
         aria-label={t('Copy selected codes')}
       />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant='outline'
+              size='icon'
+              className='size-8'
+              disabled={!singleSelected}
+              aria-label={t('Send code to order')}
+              onClick={() => {
+                if (!singleSelected) return
+                setCurrentRow(singleSelected)
+                setOpen('send')
+              }}
+            >
+              <Send />
+            </Button>
+          }
+        />
+        <TooltipContent>
+          {singleSelected
+            ? t('Send code to order')
+            : t('Select exactly one code to send')}
+        </TooltipContent>
+      </Tooltip>
     </BulkActionsToolbar>
   )
 }

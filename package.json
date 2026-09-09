@@ -1,0 +1,15 @@
+{
+  "name": "mezon-llm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenSpec and tooling for mezon-llm (new-api fork)",
+  "scripts": {
+    "spec:validate": "OPENSPEC_TELEMETRY=0 openspec validate --all",
+    "spec:list": "OPENSPEC_TELEMETRY=0 openspec list",
+    "spec:status": "OPENSPEC_TELEMETRY=0 openspec status",
+    "spec:doctor": "OPENSPEC_TELEMETRY=0 openspec doctor"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "^1.12.0"
+  }
+}

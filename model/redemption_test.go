@@ -1,8 +1,10 @@
 package model
 
 import (
+	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
@@ -109,8 +111,8 @@ func setupRedeemFixture(t *testing.T, quota int) (userId int, key string) {
 		DB.Exec("DELETE FROM users")
 		DB.Exec("DELETE FROM logs")
 	})
-
-	user := &User{Username: "redeem-user", Password: "password", Status: common.UserStatusEnabled, Quota: 0}
+	uname := fmt.Sprintf("redeem-user-%d", time.Now().UnixNano())
+	user := &User{Username: uname, Password: "password", Status: common.UserStatusEnabled, Quota: 0, AffCode: uname}
 	require.NoError(t, DB.Create(user).Error)
 
 	key = "10000000000000000000000000000001"
@@ -177,8 +179,59 @@ func TestRedemptionQuotaRejectsWalletOverflow(t *testing.T) {
 	require.Error(t, redemption.Insert())
 }
 
+func TestSendRedemptionToOrder(t *testing.T) {
+	require.NoError(t, DB.AutoMigrate(&Redemption{}))
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&Redemption{}).Error)
+	t.Cleanup(func() {
+		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&Redemption{}).Error)
+	})
+
+	now := common.GetTimestamp()
+	redemptions := []Redemption{
+		{Id: 101, Name: "send-active", Key: "20000000000000000000000000000101", Status: common.RedemptionCodeStatusEnabled, Quota: 500000, CreatedTime: now},
+		{Id: 102, Name: "send-used", Key: "20000000000000000000000000000102", Status: common.RedemptionCodeStatusUsed, Quota: 500000, CreatedTime: now},
+		{Id: 103, Name: "send-disabled", Key: "20000000000000000000000000000103", Status: common.RedemptionCodeStatusDisabled, Quota: 500000, CreatedTime: now},
+		{Id: 104, Name: "send-expired", Key: "20000000000000000000000000000104", Status: common.RedemptionCodeStatusEnabled, Quota: 500000, CreatedTime: now, ExpiredTime: now - 10},
+	}
+	require.NoError(t, DB.Create(&redemptions).Error)
+
+	sent, err := SendRedemptionToOrder(101, "order-abc-1")
+	require.NoError(t, err)
+	assert.Equal(t, common.RedemptionCodeStatusDispatched, sent.Status)
+	assert.Equal(t, "order-abc-1", sent.OrderId)
+	assert.Equal(t, int64(0), sent.RedeemedTime)
+
+	var stored Redemption
+	require.NoError(t, DB.First(&stored, "id = ?", 101).Error)
+	assert.Equal(t, "order-abc-1", stored.OrderId)
+	assert.Equal(t, common.RedemptionCodeStatusDispatched, stored.Status)
+	assert.Equal(t, int64(0), stored.RedeemedTime)
+	// Dispatched codes cannot be sent to another order.
+	_, err = SendRedemptionToOrder(101, "order-abc-2")
+	assert.Error(t, err)
+
+	// A separately dispatched code can be redeemed by the user (status 4 -> 3).
+	_, err = SendRedemptionToOrder(104, "") // expired guard: should fail before this
+	assert.Error(t, err)
+	_, err = SendRedemptionToOrder(102, "order-abc-3") // already used: should fail
+	assert.Error(t, err)
+	require.NoError(t, DB.Create(&Redemption{Id: 200, Name: "dispatched", Key: "20000000000000000000000000000200", Status: common.RedemptionCodeStatusEnabled, Quota: 500000, CreatedTime: now}).Error)
+	_, err = SendRedemptionToOrder(200, "order-abc-dispatched")
+	require.NoError(t, err)
+	user := &User{Username: "send-redeem-user", Password: "x", Status: common.UserStatusEnabled}
+	require.NoError(t, DB.Create(user).Error)
+	// TopUp is created implicitly by Redeem via creditTopUpQuota; no explicit row needed.
+	quota, err := Redeem("20000000000000000000000000000200", user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 500000, quota)
+	{
+		var storedAfter Redemption
+		require.NoError(t, DB.First(&storedAfter, "id = ?", 200).Error)
+		assert.Equal(t, user.Id, storedAfter.UsedUserId)
+	}
+}
+
 // Exactly one of several concurrent redeems of the same code may win, and
-// quota must be credited exactly once.
 func TestRedeemConcurrentSingleSuccess(t *testing.T) {
 	userId, key := setupRedeemFixture(t, 300)
 

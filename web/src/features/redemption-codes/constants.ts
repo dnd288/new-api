@@ -108,6 +108,7 @@ export const ERROR_MESSAGES = {
   DELETE_FAILED: 'Failed to delete redemption code',
   DELETE_INVALID_FAILED: 'Failed to delete invalid redemption codes',
   STATUS_UPDATE_FAILED: 'Failed to update redemption code status',
+  SEND_FAILED: 'Failed to send redemption code',
   NAME_LENGTH_INVALID: 'Name must be between {{min}} and {{max}} characters',
   COUNT_INVALID: 'Count must be between {{min}} and {{max}}',
   EXPIRED_TIME_INVALID: 'Expired time cannot be earlier than current time',
@@ -138,5 +139,6 @@ export const SUCCESS_MESSAGES = {
   REDEMPTION_DELETED: 'Redemption code deleted successfully',
   REDEMPTION_ENABLED: 'Redemption code enabled successfully',
   REDEMPTION_DISABLED: 'Redemption code disabled successfully',
+  REDEMPTION_SENT: 'Code sent for order {{orderId}}',
   COPY_SUCCESS: 'Copied to clipboard',
 } as const

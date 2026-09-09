@@ -22,6 +22,7 @@ type Redemption struct {
 	RedeemedTime int64          `json:"redeemed_time" gorm:"bigint"`
 	Count        int            `json:"count" gorm:"-:all"` // only for api request
 	UsedUserId   int            `json:"used_user_id"`
+	OrderId      string         `json:"order_id"` // 订单号，发送给订单时记录
 	DeletedAt    gorm.DeletedAt `gorm:"index"`
 	ExpiredTime  int64          `json:"expired_time" gorm:"bigint"` // 过期时间，0 表示不过期
 }
@@ -100,9 +101,10 @@ func SearchRedemptions(keyword string, status string, startIdx int, num int) (re
 			query = query.Where("status = ?", common.RedemptionCodeStatusDisabled)
 		case strconv.Itoa(common.RedemptionCodeStatusUsed):
 			query = query.Where("status = ?", common.RedemptionCodeStatusUsed)
+		case strconv.Itoa(common.RedemptionCodeStatusDispatched):
+			query = query.Where("status = ?", common.RedemptionCodeStatusDispatched)
 		}
 	}
-
 	// Get total count
 	err = query.Count(&total).Error
 	if err != nil {
@@ -153,19 +155,20 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if err != nil {
 			return errors.New("无效的兑换码")
 		}
-		if redemption.Status != common.RedemptionCodeStatusEnabled {
+		if redemption.Status != common.RedemptionCodeStatusEnabled && redemption.Status != common.RedemptionCodeStatusDispatched {
 			return errors.New("该兑换码已被使用")
 		}
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
 			return errors.New("该兑换码已过期")
 		}
 		// Compare-and-swap on status: only the transaction that flips
-		// enabled -> used may credit quota, so a concurrent redeem of the
-		// same code loses here even without a row lock (e.g. on SQLite).
+		// enabled (or dispatched) -> used may credit quota, so a concurrent
+		// redeem of the same code loses here even without a row lock (e.g. on SQLite).
+		now := common.GetTimestamp()
 		result := tx.Model(&Redemption{}).
-			Where("id = ? AND status = ?", redemption.Id, common.RedemptionCodeStatusEnabled).
+			Where("id = ? AND status IN ?", redemption.Id, []int{common.RedemptionCodeStatusEnabled, common.RedemptionCodeStatusDispatched}).
 			Updates(map[string]interface{}{
-				"redeemed_time": common.GetTimestamp(),
+				"redeemed_time": now,
 				"status":        common.RedemptionCodeStatusUsed,
 				"used_user_id":  userId,
 			})
@@ -184,6 +187,54 @@ func Redeem(key string, userId int) (quota int, err error) {
 	syncCreditUserQuotaCache(userId, redemption.Quota, "redemption")
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
 	return redemption.Quota, nil
+}
+
+// SendRedemptionToOrder 将兑换码标记为已使用并记录订单号，供订单赠券等场景
+// 追踪"哪个兑换码用在了哪个订单"。与 Redeem 相同的 CAS 写法保证并发发送时
+// 只有一次请求能把 enabled 翻转为 used。
+func SendRedemptionToOrder(id int, orderId string) (*Redemption, error) {
+	if id == 0 {
+		return nil, errors.New("id 为空！")
+	}
+	if orderId == "" {
+		return nil, errors.New("订单号不能为空！")
+	}
+	redemption := &Redemption{}
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockForUpdate(tx).First(redemption, "id = ?", id).Error; err != nil {
+			return errors.New("兑换码不存在")
+		}
+		if redemption.Status != common.RedemptionCodeStatusEnabled {
+			return errors.New("该兑换码已被使用")
+		}
+		now := common.GetTimestamp()
+		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < now {
+			return errors.New("该兑换码已过期")
+		}
+		// Dispatched (status=4): gắn mã cho đơn hàng, chờ user nhập để redeem.
+		// Không ghi redeemed_time ở bước này; thời điểm redeem do user quyết định.
+		result := tx.Model(&Redemption{}).
+			Where("id = ? AND status = ?", redemption.Id, common.RedemptionCodeStatusEnabled).
+			Updates(map[string]interface{}{
+				"redeemed_time": 0,
+				"status":        common.RedemptionCodeStatusDispatched,
+				"order_id":      orderId,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("该兑换码已被使用")
+		}
+		redemption.RedeemedTime = 0
+		redemption.Status = common.RedemptionCodeStatusDispatched
+		redemption.OrderId = orderId
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return redemption, nil
 }
 
 func (redemption *Redemption) Insert() error {
@@ -236,6 +287,8 @@ func DeleteRedemptionById(id int) (err error) {
 
 func DeleteInvalidRedemptions() (int64, error) {
 	now := common.GetTimestamp()
-	result := DB.Where("status IN ? OR (status = ? AND expired_time != 0 AND expired_time < ?)", []int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled}, common.RedemptionCodeStatusEnabled, now).Delete(&Redemption{})
+	result := DB.Where("status IN ? OR (status = ? AND expired_time != 0 AND expired_time < ?)",
+		[]int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled, common.RedemptionCodeStatusDispatched},
+		common.RedemptionCodeStatusEnabled, now).Delete(&Redemption{})
 	return result.RowsAffected, result.Error
 }

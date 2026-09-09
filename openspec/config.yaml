@@ -1,0 +1,75 @@
+project:
+  name: mezon-llm
+  context: >-
+    AI API gateway/proxy built with Go (Gin + GORM), forked from QuantumNous/new-api.
+    Aggregates 40+ upstream AI providers behind a unified OpenAI-compatible API.
+    Frontend is React 19 + Rsbuild + Bun. Three database backends (SQLite, MySQL, PostgreSQL).
+    Billing via quota system with expression-based pricing.
+    relaykit/ is an independently-buildable Go submodule.
+
+schemas:
+  - napi
+  - bugfix
+
+defaults:
+  schema: napi
+
+rules:
+  proposal:
+    - >-
+      Start with the user-visible behavior change
+    - >-
+      Name the relay/billing/model/controller/service layers affected
+    - >-
+      State the database compatibility requirement (SQLite + MySQL + PostgreSQL)
+    - >-
+      State the relaykit independence constraint if relaykit/ is affected
+  specs:
+    - >-
+      Each scenario maps to a Go table test or a vitest case
+    - >-
+      Lines starting with *Test:* become test cases
+    - >-
+      Cover billing overflow, database dialect differences, and relay pass-through when affected
+  design:
+    - >-
+      Name Go packages, files, and interfaces changed or added
+    - >-
+      For relay adapters specify adapter struct, conversion format, and stream support
+    - >-
+      For billing changes specify the quota chain from validation to settle
+    - >-
+      For database changes specify the migration and cross-dialect behavior
+  tasks:
+    - >-
+      Test-first order
+    - >-
+      Dependency order model to service to controller to relay to frontend
+    - >-
+      Each task names the file it changes and the test that proves it
+  decision:
+    - >-
+      Seven sections per ADR record
+    - >-
+      Reference AGENTS.md rules that constrain the choice
+  verification:
+    - >-
+      Paste the RED test output, then the GREEN output
+    - >-
+      Name the databases tested (SQLite at minimum)
+    - >-
+      Name the relay providers tested if applicable
+    - >-
+      Name what was NOT tested and why
+  report:
+    - >-
+      Do not invent a cause — state only what the evidence shows
+    - >-
+      Quote the error message or unexpected output
+  diagnosis:
+    - >-
+      Every claim carries the observation that proves it
+    - >-
+      Trace the code path from entry point to the failure
+    - >-
+      Name the database backend(s) where the defect reproduces

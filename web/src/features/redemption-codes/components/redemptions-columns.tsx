@@ -253,6 +253,27 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       size: 140,
     },
     {
+      accessorKey: 'order_id',
+      header: t('Order ID'),
+      meta: { mobileHidden: true },
+      cell: ({ row }) => {
+        const orderId = row.getValue('order_id') as string
+        if (!orderId) {
+          return <span className='text-muted-foreground text-sm'>-</span>
+        }
+        return (
+          <div
+            className='max-w-[200px] truncate font-mono text-sm'
+            title={orderId}
+          >
+            {orderId}
+          </div>
+        )
+      },
+      enableSorting: false,
+      size: 160,
+    },
+    {
       id: 'actions',
       header: () => t('Actions'),
       cell: ({ row }) => <DataTableRowActions row={row} />,
