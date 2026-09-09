@@ -240,6 +240,11 @@ export interface UserWalletData {
 }
 
 /**
+ * Topup record status
+ */
+export type TopupStatus = 'success' | 'pending' | 'expired'
+
+/**
  * Topup billing record
  */
 export interface TopupRecord {

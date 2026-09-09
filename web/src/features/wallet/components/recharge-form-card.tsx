@@ -52,6 +52,7 @@ import type {
   WaffoPayMethod,
 } from '../types'
 import { VoucherSection } from './voucher-section'
+import { CreemProductsSection } from './creem-products-section'
 
 interface RechargeFormCardProps {
   topupInfo: TopupInfo | null
