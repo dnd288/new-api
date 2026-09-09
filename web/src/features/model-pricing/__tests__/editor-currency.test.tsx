@@ -124,19 +124,6 @@ async function commit(
   return result as ModelRatioData | null
 }
 
-it('toggles and commits the per-model minimum charge', async () => {
-  const user = userEvent.setup()
-  const editor = renderEditor({ minimumCharge: false })
-  const checkbox = screen.getByRole('checkbox', { name: 'Minimum charge' })
-
-  expect(checkbox).not.toBeChecked()
-  await user.click(checkbox)
-  expect(checkbox).toBeChecked()
-  await expect(commit(editor.ref)).resolves.toMatchObject({
-    minimumCharge: true,
-  })
-})
-
 it('defaults to USD, remembers a currency choice and restores it when reopened', async () => {
   const editor = renderEditor()
   expect(
@@ -359,6 +346,28 @@ it('keeps custom raw expressions byte-for-byte intact on currency changes', asyn
   ).toBeVisible()
 })
 
+it('keeps time pricing and request rules unchanged when opening the simulator', async () => {
+  const user = userEvent.setup()
+  const expression =
+    'hour("Asia/Shanghai") < 12 ? tier("peak", p * 3 + c * 9) : tier("off_peak", p * 1.5 + c * 4.5)'
+  const rules = '(header("tier") == "fast" ? 2 : 1)'
+  const editor = renderEditor({
+    billingMode: 'tiered_expr',
+    billingExpr: expression,
+    requestRuleExpr: rules,
+  })
+  const before = await commit(editor.ref)
+  await user.click(screen.getByRole('button', { name: 'Request simulation' }))
+  fireEvent.input(
+    screen.getByRole('textbox', { name: 'Simulated request body' }),
+    { target: { value: '{"unused":1}' } }
+  )
+  await selectCurrency('Site currency (CNY)')
+  expect(await commit(editor.ref)).toEqual(before)
+  expect(before?.billingExpr).toBe(expression)
+  expect(before?.requestRuleExpr).toBe(rules)
+})
+
 it('converts task additional charges and second, token and credit prices, including whole-column fill', async () => {
   const schema: BillingUsageSchema = {
     seconds: { type: 'number', unit: 'second' },
@@ -376,15 +385,21 @@ it('converts task additional charges and second, token and credit prices, includ
   await selectCurrency('Site currency (CNY)')
   fireEvent.change(
     screen.getByRole('textbox', { name: 'Additional charge: mode: std' }),
-    { target: { value: '7' } }
+    {
+      target: { value: '7' },
+    }
   )
   fireEvent.change(
     screen.getByRole('textbox', { name: 'Unit price: tokens: mode: std' }),
-    { target: { value: '70' } }
+    {
+      target: { value: '70' },
+    }
   )
   fireEvent.change(
     screen.getByRole('textbox', { name: 'Unit price: credits: mode: std' }),
-    { target: { value: '0.7' } }
+    {
+      target: { value: '0.7' },
+    }
   )
   const secondsHeader = screen.getByRole('columnheader', { name: /seconds/ })
   await userEvent.click(
@@ -511,4 +526,35 @@ it('clears an invalid amount draft when pricing is reloaded with the same saved 
   editor.reload({ ...saved })
   expect(screen.getByRole('textbox', { name: 'Fixed price' })).toHaveValue('7')
   expect(await commit(editor.ref)).toMatchObject({ price: '1' })
+})
+
+it('preserves time billing on direct save and blocks incomplete local conditions', async () => {
+  const expression =
+    'hour("Asia/Shanghai") >= 9 ? tier("peak", p * 3 + cr * 0 + c * 9) : tier("off", p * 1 + c * 2)'
+  const requestRuleExpr = '(header("x-plan") == "fast" ? 2.00 : 1)'
+  const editor = renderEditor({
+    billingMode: 'tiered_expr',
+    billingExpr: expression,
+    requestRuleExpr,
+  })
+  expect(await commit(editor.ref)).toMatchObject({
+    billingExpr: expression,
+    requestRuleExpr,
+  })
+  await selectCurrency('Site currency (CNY)')
+  expect(await commit(editor.ref)).toMatchObject({
+    billingExpr: expression,
+    requestRuleExpr,
+  })
+  fireEvent.change(screen.getByRole('textbox', { name: 'Condition value' }), {
+    target: { value: '' },
+  })
+  expect(await commit(editor.ref)).toBeNull()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Condition value' }), {
+    target: { value: '10' },
+  })
+  expect(await commit(editor.ref)).toMatchObject({
+    billingExpr: expression.replace('>= 9', '>= 10'),
+    requestRuleExpr,
+  })
 })

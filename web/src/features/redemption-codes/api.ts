@@ -109,3 +109,10 @@ export async function sendRedemption(
   })
   return res.data
 }
+
+export async function batchDeleteRedemptions(
+  ids: number[]
+): Promise<ApiResponse<number>> {
+  const res = await api.post('/api/redemption/batch', { ids })
+  return res.data
+}

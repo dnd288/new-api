@@ -57,11 +57,14 @@ import {
 } from '@/features/performance-metrics/lib/format'
 import { useModelStatus } from '@/features/status/api'
 import { getLobeIcon } from '@/lib/lobe-icon'
+import { requireServerSuccess } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 
 import { DEFAULT_TOKEN_UNIT } from '../constants'
+import { useBillingTime } from '../hooks/use-billing-time'
 import { usePricingData } from '../hooks/use-pricing-data'
 import type { ParsedTaskTier } from '../lib/billing-expr'
+import { formatBillingCondition } from '../lib/billing-expression/condition-display'
 import {
   formatTaskUsageUnitPrice,
   getDynamicPriceEntries,
@@ -259,7 +262,8 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
   const { t } = useTranslation()
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics', props.model.model_name],
-    queryFn: () => getPerfMetrics(props.model.model_name, 24),
+    queryFn: async () =>
+      requireServerSuccess(await getPerfMetrics(props.model.model_name, 24)),
     staleTime: 60 * 1000,
   })
 
@@ -664,7 +668,9 @@ function PriceSection(props: {
   const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
   const baseGroupKey = '_base'
   const baseGroupRatioMap = { [baseGroupKey]: 1 }
+  const billingTime = useBillingTime(props.model.billing_expr)
   const dynamicSummary = getDynamicPricingSummary(props.model, {
+    now: billingTime === undefined ? undefined : new Date(billingTime),
     tokenUnit: props.tokenUnit,
     showRechargePrice: props.showRechargePrice,
     priceRate: props.priceRate,
@@ -738,6 +744,11 @@ function PriceSection(props: {
     return (
       <section>
         <SectionTitle>{t('Base Price')}</SectionTitle>
+        {dynamicSummary.isMixedBilling && (
+          <p className='text-muted-foreground mb-2 text-xs'>
+            {t('Token or per-call pricing')}
+          </p>
+        )}
         {dynamicSummary.primaryEntries.length > 0 ? (
           <div
             className={cn(
@@ -1025,6 +1036,9 @@ function GroupPricingSection(props: {
           props.model.billing_usage_schema
         )
       : getDynamicPricingTiers(props.model)
+    const hasRequestPrice = dynamicTiers.some(
+      (tier) => !('unitPrices' in tier) && tier.billingUnit === 'request'
+    )
 
     if (dynamicTiers.length === 0) {
       return (
@@ -1122,9 +1136,10 @@ function GroupPricingSection(props: {
                             className: thClass,
                             cellClassName:
                               'text-muted-foreground py-2.5 whitespace-normal break-words',
-                            cell: (tier: DynamicPricingTier) =>
-                              'unitPrices' in tier
-                                ? taskPricingConditions(
+                            cell: (tier: DynamicPricingTier) => {
+                              if ('unitPrices' in tier) {
+                                return (
+                                  taskPricingConditions(
                                     (tier as ParsedTaskTier).conditions,
                                     props.model.billing_usage_schema,
                                     i18n.language,
@@ -1135,12 +1150,24 @@ function GroupPricingSection(props: {
                                       ? 'Other cases'
                                       : 'All requests'
                                   )
-                                : tier.label || t('Default'),
+                                )
+                              }
+                              if (tier.conditionText) {
+                                return `${tier.label}: ${formatBillingCondition(tier.conditionText, t, i18n.language) ?? tier.conditionText}`
+                              }
+                              return tier.label || t('Default')
+                            },
                           },
                         ]),
                     ...priceFields.map((fieldEntry) => {
                       const unitLabelKey =
                         getDynamicPriceUnitLabelKey(fieldEntry)
+                      let unitLabel = unitLabelKey ? t(unitLabelKey) : ''
+                      if (!unitLabel && hasRequestPrice) {
+                        unitLabel = t('{{unit}} tokens', {
+                          unit: tokenUnitLabel,
+                        })
+                      }
                       const fieldLabel =
                         fieldEntry.labelKind === 'schema' ? (
                           <DynamicPriceEntryLabel entry={fieldEntry} />
@@ -1149,10 +1176,10 @@ function GroupPricingSection(props: {
                         )
                       return {
                         id: fieldEntry.field,
-                        header: unitLabelKey ? (
+                        header: unitLabel ? (
                           <>
                             {fieldLabel}
-                            {` / ${t(unitLabelKey)}`}
+                            {` / ${unitLabel}`}
                           </>
                         ) : (
                           fieldLabel
@@ -1211,7 +1238,9 @@ function GroupPricingSection(props: {
             )
           })}
           <p className='text-muted-foreground/40 mt-1.5 text-[10px]'>
-            {dynamicTiers.some((tier) => 'unitPrices' in tier)
+            {dynamicTiers.some(
+              (tier) => 'unitPrices' in tier || tier.billingUnit === 'request'
+            )
               ? t('Prices shown per usage unit')
               : `${t('Prices shown per')} ${tokenUnitLabel} tokens`}
           </p>
