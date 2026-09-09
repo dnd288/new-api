@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Check, Copy, Terminal } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { MultiSelect } from '@/components/multi-select'
@@ -41,6 +41,8 @@ import {
   QUICK_SETUP_API_KEY_PLACEHOLDER,
   type ClaudeCodeModels,
   type ClaudeCodeSnippetFormat,
+  type OmpSnippetApi,
+  type OpenCodeSnippetApi,
   type QuickSetupClient,
 } from '@/features/dashboard/lib/quick-setup'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
@@ -58,6 +60,9 @@ export function QuickSetupPanel() {
   const [client, setClient] = useState<QuickSetupClient>('claude')
   const [claudeFormat, setClaudeFormat] =
     useState<ClaudeCodeSnippetFormat>('settings')
+  const [opencodeApi, setOpencodeApi] =
+    useState<OpenCodeSnippetApi>('anthropic')
+  const [ompApi, setOmpApi] = useState<OmpSnippetApi>('anthropic-messages')
   const [selectedKeyId, setSelectedKeyId] = useState('')
 
   // Claude models state
@@ -149,12 +154,14 @@ export function QuickSetupPanel() {
       baseUrl,
       apiKey,
       models: effectiveMultiModels,
+      api: opencodeApi,
     })
   } else {
     snippet = buildOmpSnippet({
       baseUrl,
       apiKey,
       models: effectiveMultiModels,
+      api: ompApi,
     })
   }
 
@@ -188,6 +195,58 @@ export function QuickSetupPanel() {
     footerHelpText = t('Save as ~/.omp/agent/models.yml, then run omp.')
   }
 
+  let apiHint = ''
+  if (client === 'opencode') {
+    apiHint =
+      opencodeApi === 'anthropic'
+        ? t('Anthropic Messages API. Recommended for Claude models.')
+        : t('OpenAI-compatible Chat Completions API.')
+  } else if (client === 'omp') {
+    apiHint =
+      ompApi === 'anthropic-messages'
+        ? t('Anthropic Messages API. Recommended for Claude models.')
+        : t('OpenAI-compatible Chat Completions API.')
+  }
+
+  let apiSelector: ReactNode
+  if (client === 'claude') {
+    apiSelector = (
+      <span className='font-mono text-xs'>Anthropic Messages API</span>
+    )
+  } else if (client === 'opencode') {
+    apiSelector = (
+      <Tabs
+        value={opencodeApi}
+        onValueChange={(value) => setOpencodeApi(value as OpenCodeSnippetApi)}
+      >
+        <TabsList className='h-8'>
+          <TabsTrigger value='anthropic' className='font-mono text-xs'>
+            @ai-sdk/anthropic
+          </TabsTrigger>
+          <TabsTrigger value='openai-compatible' className='font-mono text-xs'>
+            @ai-sdk/openai-compatible
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    )
+  } else {
+    apiSelector = (
+      <Tabs
+        value={ompApi}
+        onValueChange={(value) => setOmpApi(value as OmpSnippetApi)}
+      >
+        <TabsList className='h-8'>
+          <TabsTrigger value='anthropic-messages' className='font-mono text-xs'>
+            anthropic-messages
+          </TabsTrigger>
+          <TabsTrigger value='openai-completions' className='font-mono text-xs'>
+            openai-completions
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    )
+  }
+
   return (
     <PanelWrapper
       title={
@@ -213,6 +272,16 @@ export function QuickSetupPanel() {
             <TabsTrigger value='omp'>Oh My Pi (OMP)</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        <div className='space-y-2'>
+          <div className='flex flex-wrap items-center gap-3'>
+            <span className='text-muted-foreground text-xs'>{t('API')}</span>
+            {apiSelector}
+          </div>
+          {apiHint ? (
+            <p className='text-muted-foreground text-xs'>{apiHint}</p>
+          ) : null}
+        </div>
 
         <div className='space-y-3'>
           <div className='min-w-0 space-y-2'>
@@ -383,12 +452,14 @@ export function QuickSetupPanel() {
                           baseUrl,
                           apiKey: realKey,
                           models: effectiveMultiModels,
+                          api: opencodeApi,
                         })
                       } else {
                         realSnippet = buildOmpSnippet({
                           baseUrl,
                           apiKey: realKey,
                           models: effectiveMultiModels,
+                          api: ompApi,
                         })
                       }
                       await copyToClipboard(realSnippet)

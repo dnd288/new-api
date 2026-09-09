@@ -23,6 +23,8 @@ export const CLAUDE_CODE_MODEL_PLACEHOLDER = 'your-model'
 
 export type ClaudeCodeSnippetFormat = 'settings' | 'shell'
 export type QuickSetupClient = 'claude' | 'opencode' | 'omp'
+export type OpenCodeSnippetApi = 'anthropic' | 'openai-compatible'
+export type OmpSnippetApi = 'anthropic-messages' | 'openai-completions'
 
 export interface ClaudeCodeModels {
   primary?: string
@@ -169,6 +171,7 @@ export function buildOpenCodeSnippet(input: {
   baseUrl: string
   apiKey: string
   models: string[] | string
+  api?: OpenCodeSnippetApi
 }): string {
   const modelList = Array.isArray(input.models)
     ? input.models.filter(Boolean)
@@ -187,7 +190,10 @@ export function buildOpenCodeSnippet(input: {
     model: `${OPENCODE_PROVIDER_ID}/${primaryModel}`,
     provider: {
       [OPENCODE_PROVIDER_ID]: {
-        npm: '@ai-sdk/openai-compatible',
+        npm:
+          (input.api ?? 'anthropic') === 'anthropic'
+            ? '@ai-sdk/anthropic'
+            : '@ai-sdk/openai-compatible',
         name: 'New API',
         options: {
           baseURL: openaiCompatibleBaseUrl(input.baseUrl),
@@ -206,6 +212,7 @@ export function buildOmpSnippet(input: {
   baseUrl: string
   apiKey: string
   models: string[] | string
+  api?: OmpSnippetApi
 }): string {
   const modelList = Array.isArray(input.models)
     ? input.models.filter(Boolean)
@@ -214,13 +221,21 @@ export function buildOmpSnippet(input: {
     modelList.length > 0 ? modelList : [CLAUDE_CODE_MODEL_PLACEHOLDER]
   const resolvedApiKey =
     formatGatewayApiKey(input.apiKey) || QUICK_SETUP_API_KEY_PLACEHOLDER
-  const resolvedBaseUrl = openaiCompatibleBaseUrl(input.baseUrl)
+  const anthropicApi =
+    (input.api ?? 'anthropic-messages') === 'anthropic-messages'
+  // OMP joins the Anthropic Messages URL as {baseUrl}/v1/messages, so the
+  // provider baseUrl must stay at the origin; the OpenAI surface expects /v1.
+  const resolvedBaseUrl = anthropicApi
+    ? normalizeGatewayBaseUrl(input.baseUrl)
+    : openaiCompatibleBaseUrl(input.baseUrl)
 
   const lines = [
     'providers:',
     `  ${OMP_PROVIDER_ID}:`,
     `    baseUrl: ${resolvedBaseUrl}`,
-    '    api: openai-completions',
+    anthropicApi
+      ? '    api: anthropic-messages'
+      : '    api: openai-completions',
     `    apiKey: ${resolvedApiKey}`,
     '    models:',
   ]
