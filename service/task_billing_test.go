@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+
 	"github.com/glebarez/sqlite"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -60,6 +61,19 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(m.Run())
+}
+func TestRecalculateTaskQuotaAppliesSnapshotMinimumCharge(t *testing.T) {
+	task := &model.Task{
+		TaskID: "minimum-charge-task",
+		Quota:  10,
+		PrivateData: model.TaskPrivateData{BillingContext: &model.TaskBillingContext{
+			MinimumCharge: true,
+		}},
+	}
+
+	RecalculateTaskQuota(context.Background(), task, 4, "measured usage")
+
+	assert.Equal(t, 10, task.Quota)
 }
 
 // ---------------------------------------------------------------------------

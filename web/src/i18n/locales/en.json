@@ -6198,6 +6198,8 @@
     "đồng": "đồng",
     "、": ", ",
     "，": ", ",
-    "，and ": ", and "
+    "，and ": ", and ",
+    "Minimum charge": "Minimum charge",
+    "Charge at least 10 quota for each successful billable request. Free requests remain free.": "Charge at least 10 quota for each successful billable request. Free requests remain free."
   }
 }

@@ -6198,6 +6198,8 @@
     "đồng": "đồng",
     "、": "、",
     "，": "、",
-    "，and ": "、"
+    "，and ": "、",
+    "Minimum charge": "最低料金",
+    "Charge at least 10 quota for each successful billable request. Free requests remain free.": "正常に完了した課金対象リクエストごとに最低 10 quota を請求します。無料リクエストは無料のままです。"
   }
 }

@@ -51,6 +51,7 @@ var modelPricingOptionKeys = []string{
 	"AudioCompletionRatio", "AudioRatio", "CacheRatio", "CompletionRatio",
 	"CreateCacheRatio", "ImageRatio", "ModelPrice", "ModelRatio",
 	"billing_setting.billing_expr", "billing_setting.billing_mode",
+	billing_setting.MinimumChargeOptionKey,
 }
 
 var modelPricingMutationMu sync.Mutex
@@ -119,6 +120,9 @@ func effectiveModelPricing(values map[string]map[string]any, name string) Pricin
 		if value, exists := values[key][alias]; exists {
 			result[key] = value
 		}
+	}
+	if value, exists := values[billing_setting.MinimumChargeOptionKey][alias]; exists {
+		result[billing_setting.MinimumChargeOptionKey] = value
 	}
 	mode, _ := result["billing_setting.billing_mode"].(string)
 	if mode == "" {
@@ -221,6 +225,12 @@ func ValidateModelPricing(name string, values PricingValues) error {
 		if key == "billing_setting.billing_mode" {
 			if value != "ratio" && value != "tiered_expr" {
 				return errors.New("invalid billing mode")
+			}
+			continue
+		}
+		if key == billing_setting.MinimumChargeOptionKey {
+			if _, ok := value.(bool); !ok {
+				return errors.New("minimum charge must be a boolean")
 			}
 			continue
 		}

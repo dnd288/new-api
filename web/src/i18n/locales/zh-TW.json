@@ -6198,6 +6198,8 @@
     "đồng": "đồng",
     "、": "、",
     "，": "，",
-    "，and ": "，並"
+    "，and ": "，並",
+    "Minimum charge": "最低收費",
+    "Charge at least 10 quota for each successful billable request. Free requests remain free.": "每個成功且可計費的請求至少收取 10 quota。免費請求仍維持免費。"
   }
 }

@@ -63,7 +63,7 @@ func modelManagementDB(t *testing.T, kind, dsn string) *gorm.DB {
 	for _, value := range restoreRatios {
 		require.NoError(t, value.restore("{}"))
 	}
-	config.UpdateConfigFromMap(config.GlobalConfig.Get("billing_setting"), map[string]string{"billing_mode": "{}", "billing_expr": "{}"})
+	config.UpdateConfigFromMap(config.GlobalConfig.Get("billing_setting"), map[string]string{"billing_mode": "{}", "billing_expr": "{}", "minimum_charge": "{}"})
 	var version string
 	query := "SELECT version()"
 	if kind == "sqlite" {
@@ -75,7 +75,7 @@ func modelManagementDB(t *testing.T, kind, dsn string) *gorm.DB {
 		for _, value := range restoreRatios {
 			require.NoError(t, value.restore(value.value))
 		}
-		config.UpdateConfigFromMap(config.GlobalConfig.Get("billing_setting"), map[string]string{"billing_mode": previousConfig["billing_setting.billing_mode"], "billing_expr": previousConfig["billing_setting.billing_expr"]})
+		config.UpdateConfigFromMap(config.GlobalConfig.Get("billing_setting"), map[string]string{"billing_mode": previousConfig["billing_setting.billing_mode"], "billing_expr": previousConfig["billing_setting.billing_expr"], "minimum_charge": previousConfig[billing_setting.MinimumChargeOptionKey]})
 		common.OptionMap = previousOptions
 		common.IsMasterNode, common.SQLitePath = previousMaster, previousSQLite
 		common.RedisEnabled, common.MemoryCacheEnabled = previousRedis, previousMemory
@@ -131,6 +131,14 @@ export function parseTaskResult() { return {}; }
 				loaded, err := model.GetModelPricingSnapshot([]string{"matrix-priced"})
 				require.NoError(t, err)
 				assert.Equal(t, float64(0), loaded.Entries[0].Effective["ModelPrice"])
+				changes[0].ExpectedVersion = loaded.Entries[0].Version
+				changes[0].Pricing = model.PricingValues{"ModelPrice": float64(0), "billing_setting.billing_mode": "ratio", billing_setting.MinimumChargeOptionKey: true}
+				require.NoError(t, model.UpdateModelPricing(changes[:1]))
+				minimumLoaded, err := model.GetModelPricingSnapshot([]string{"matrix-priced"})
+				require.NoError(t, err)
+				assert.Equal(t, true, minimumLoaded.Entries[0].Configured[billing_setting.MinimumChargeOptionKey])
+				assert.True(t, billing_setting.MinimumChargeEnabled("matrix-priced"))
+				loaded = minimumLoaded
 				stale := changes[0]
 				changes[0].ExpectedVersion = loaded.Entries[0].Version
 				changes[0].Pricing = model.PricingValues{"billing_setting.billing_mode": "tiered_expr", "billing_setting.billing_expr": `tier("base", p * 2 + c * 8 + cr * 0 + cc * 2.5)`, "ModelRatio": float64(1)}

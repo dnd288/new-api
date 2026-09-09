@@ -14,6 +14,7 @@ import (
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -204,6 +205,7 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 	if tieredOk {
 		quota = tieredQuota
 	}
+	quota = billing_setting.ApplyMinimumCharge(quota, relayInfo.PriceData.MinimumCharge)
 
 	totalTokens := usage.TotalTokens
 	var logContent string
@@ -333,6 +335,7 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	if tieredOk {
 		quota = tieredQuota
 	}
+	quota = billing_setting.ApplyMinimumCharge(quota, relayInfo.PriceData.MinimumCharge)
 
 	totalTokens := usage.TotalTokens
 	var logContent string

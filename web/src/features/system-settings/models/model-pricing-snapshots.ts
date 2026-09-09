@@ -32,6 +32,7 @@ export type ModelPricingSnapshotInput = {
   audioCompletionRatio: string
   billingMode: string
   billingExpr: string
+  minimumCharge?: string
 }
 
 export type ModelPricingSnapshot = {
@@ -47,6 +48,7 @@ export type ModelPricingSnapshot = {
   billingMode?: string
   billingExpr?: string
   requestRuleExpr?: string
+  minimumCharge?: boolean
   hasConflict: boolean
 }
 
@@ -163,6 +165,7 @@ export const buildModelSnapshots = ({
   audioCompletionRatio,
   billingMode,
   billingExpr,
+  minimumCharge,
 }: ModelPricingSnapshotInput): ModelPricingSnapshot[] => {
   const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
     fallback: {},
@@ -204,6 +207,10 @@ export const buildModelSnapshots = ({
     fallback: {},
     context: 'billing expression',
   })
+  const minimumChargeMap = safeJsonParse<Record<string, boolean>>(
+    minimumCharge ?? '{}',
+    { fallback: {}, context: 'minimum charges' }
+  )
 
   const modelNames = new Set([
     ...Object.keys(priceMap),
@@ -216,6 +223,7 @@ export const buildModelSnapshots = ({
     ...Object.keys(audioCompletionMap),
     ...Object.keys(billingModeMap),
     ...Object.keys(billingExprMap),
+    ...Object.keys(minimumChargeMap),
   ])
 
   return [...modelNames].map((name) => {
@@ -227,6 +235,7 @@ export const buildModelSnapshots = ({
     const image = imageMap[name]?.toString() || ''
     const audio = audioMap[name]?.toString() || ''
     const audioCompletion = audioCompletionMap[name]?.toString() || ''
+    const minimumChargeEnabled = minimumChargeMap[name] === true
 
     const modeForModel = billingModeMap[name]
     if (modeForModel === 'tiered_expr') {
@@ -246,6 +255,7 @@ export const buildModelSnapshots = ({
         imageRatio: image,
         audioRatio: audio,
         audioCompletionRatio: audioCompletion,
+        minimumCharge: minimumChargeEnabled,
         hasConflict: false,
       }
     }
@@ -260,6 +270,7 @@ export const buildModelSnapshots = ({
       imageRatio: image,
       audioRatio: audio,
       audioCompletionRatio: audioCompletion,
+      minimumCharge: minimumChargeEnabled,
       billingMode: price !== '' ? 'per-request' : 'per-token',
       hasConflict:
         price !== '' &&

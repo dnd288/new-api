@@ -6198,6 +6198,8 @@
     "đồng": "đồng",
     "、": ", ",
     "，": ", ",
-    "，and ": " и "
+    "，and ": " и ",
+    "Minimum charge": "Минимальная плата",
+    "Charge at least 10 quota for each successful billable request. Free requests remain free.": "Взимать не менее 10 единиц квоты за каждый успешный платный запрос. Бесплатные запросы остаются бесплатными."
   }
 }
