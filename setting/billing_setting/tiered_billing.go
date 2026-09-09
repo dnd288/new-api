@@ -16,27 +16,44 @@ import (
 )
 
 const (
-	BillingModeRatio      = "ratio"
-	BillingModeTieredExpr = "tiered_expr"
-	BillingModeField      = "billing_mode"
-	BillingExprField      = "billing_expr"
-	maxTaskExprSmokeTests = 64
+	BillingModeRatio       = "ratio"
+	BillingModeTieredExpr  = "tiered_expr"
+	BillingModeField       = "billing_mode"
+	BillingExprField       = "billing_expr"
+	MinimumChargeField     = "minimum_charge"
+	MinimumChargeOptionKey = "billing_setting.minimum_charge"
+	minimumChargeQuota     = 10
+	maxTaskExprSmokeTests  = 64
 )
 
 // BillingSetting is managed by config.GlobalConfig.Register.
-// DB keys: billing_setting.billing_mode, billing_setting.billing_expr
+// DB keys: billing_setting.billing_mode, billing_setting.billing_expr,
+// billing_setting.minimum_charge.
 type BillingSetting struct {
-	BillingMode map[string]string `json:"billing_mode"`
-	BillingExpr map[string]string `json:"billing_expr"`
+	BillingMode   map[string]string `json:"billing_mode"`
+	BillingExpr   map[string]string `json:"billing_expr"`
+	MinimumCharge map[string]bool   `json:"minimum_charge"`
 }
 
 var billingSetting = BillingSetting{
-	BillingMode: make(map[string]string),
-	BillingExpr: make(map[string]string),
+	BillingMode:   make(map[string]string),
+	BillingExpr:   make(map[string]string),
+	MinimumCharge: make(map[string]bool),
 }
 
 func init() {
 	config.GlobalConfig.Register("billing_setting", &billingSetting)
+}
+
+func MinimumChargeEnabled(model string) bool {
+	return billingSetting.MinimumCharge[model]
+}
+
+func ApplyMinimumCharge(quota int, enabled bool) int {
+	if enabled && quota > 0 && quota < minimumChargeQuota {
+		return minimumChargeQuota
+	}
+	return quota
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +119,10 @@ func GetBillingExprCopy() map[string]string {
 		}
 	}
 	return expressions
+}
+
+func GetMinimumChargeCopy() map[string]bool {
+	return lo.Assign(billingSetting.MinimumCharge)
 }
 
 func GetPricingSyncData(base map[string]any) map[string]any {

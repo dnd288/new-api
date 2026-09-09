@@ -36,9 +36,12 @@ export const PRICING_KEYS = [
   'AudioCompletionRatio',
   'billing_setting.billing_mode',
   'billing_setting.billing_expr',
+  'billing_setting.minimum_charge',
 ] as const
 export type PricingKey = (typeof PRICING_KEYS)[number]
-export type PricingValues = Partial<Record<PricingKey, number | string>>
+export type PricingValues = Partial<
+  Record<PricingKey, number | string | boolean>
+>
 export type PricingOptions = Record<PricingKey, string>
 
 export const pricingFieldMap = {
@@ -77,6 +80,7 @@ export function pricingRows(options: PricingOptions): ModelPricingSnapshot[] {
     audioCompletionRatio: options.AudioCompletionRatio,
     billingMode: options['billing_setting.billing_mode'],
     billingExpr: options['billing_setting.billing_expr'],
+    minimumCharge: options['billing_setting.minimum_charge'],
   })
 }
 
@@ -102,6 +106,7 @@ export function pricingFromDraft(data: ModelRatioData): PricingValues {
     'billing_setting.billing_mode':
       data.billingMode === 'tiered_expr' ? 'tiered_expr' : 'ratio',
   }
+  if (data.minimumCharge) values['billing_setting.minimum_charge'] = true
   for (const [field, key] of Object.entries(pricingFieldMap)) {
     const value = data[field as keyof typeof pricingFieldMap]
     if (value === undefined || value === '') continue
@@ -142,7 +147,10 @@ function applyPricingValues(
 ): PricingOptions {
   return Object.fromEntries(
     PRICING_KEYS.map((key) => {
-      const map = JSON.parse(options[key]) as Record<string, number | string>
+      const map = JSON.parse(options[key]) as Record<
+        string,
+        number | string | boolean
+      >
       for (const name of names) {
         delete map[name]
         if (values[key] !== undefined) {
@@ -169,7 +177,11 @@ export function pricingValuesByModel(
       throw new Error(t('Pricing must be a JSON object'))
     }
     for (const [name, value] of Object.entries(map)) {
-      if (typeof value !== 'number' && typeof value !== 'string') {
+      if (
+        typeof value !== 'number' &&
+        typeof value !== 'string' &&
+        typeof value !== 'boolean'
+      ) {
         throw new Error(t('Invalid pricing value'))
       }
       const model = models.get(name) ?? {}

@@ -124,6 +124,19 @@ async function commit(
   return result as ModelRatioData | null
 }
 
+it('toggles and commits the per-model minimum charge', async () => {
+  const user = userEvent.setup()
+  const editor = renderEditor({ minimumCharge: false })
+  const checkbox = screen.getByRole('checkbox', { name: 'Minimum charge' })
+
+  expect(checkbox).not.toBeChecked()
+  await user.click(checkbox)
+  expect(checkbox).toBeChecked()
+  await expect(commit(editor.ref)).resolves.toMatchObject({
+    minimumCharge: true,
+  })
+})
+
 it('defaults to USD, remembers a currency choice and restores it when reopened', async () => {
   const editor = renderEditor()
   expect(

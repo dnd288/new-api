@@ -67,6 +67,7 @@ export type ModelRatioData = {
   billingMode?: PricingMode
   billingExpr?: string
   requestRuleExpr?: string
+  minimumCharge?: boolean
 }
 
 export type PreviewRow = {
