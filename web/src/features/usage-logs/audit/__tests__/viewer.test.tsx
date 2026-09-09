@@ -168,7 +168,13 @@ it.each([
         <AuditLogViewer scope='self' />
       </QueryClientProvider>
     )
-    const cell = await screen.findByRole('cell', { name: new RegExp(headline) })
+    // CI runners under load can take longer than the 1s default for the
+    // mocked query to settle and the table to render.
+    const cell = await screen.findByRole(
+      'cell',
+      { name: new RegExp(headline) },
+      { timeout: 5000 }
+    )
     expect(cell).toHaveTextContent(headline)
     if ('id' in params || 'target_user_id' in params) {
       expect(cell).toHaveTextContent('(ID: 11)')
