@@ -18,15 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createInstance } from 'i18next'
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { VoucherSection } from '../components/voucher-section'
-
-vi.mock('../api', () => ({
-  getMezonTransactions: vi.fn(async () => ({ success: true, data: [] })),
-}))
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
@@ -34,36 +29,19 @@ await i18n.use(initReactI18next).init({
   resources: {
     en: {
       translation: {
-        'Mezon Đồng': 'Mezon Đồng',
-        'Select a voucher to top up': 'Select a voucher to top up',
-        'Transfer exactly {{amount}} đồng (1 đồng = 1 mzđ) from your bound Mezon wallet.':
-          'Transfer exactly {{amount}} đồng (1 đồng = 1 mzđ) from your bound Mezon wallet.',
-        'Scan QR': 'Scan QR',
-        'Find my transactions': 'Find my transactions',
-        đồng: 'đồng',
-        'No unclaimed transactions found. Paste a hash manually.':
-          'No unclaimed transactions found. Paste a hash manually.',
-        'Paste the transaction hash (0x…)': 'Paste the transaction hash (0x…)',
-        'Transaction hash': 'Transaction hash',
-        Claim: 'Claim',
-        'Copy address': 'Copy address',
-        'Copy failed, please copy manually':
-          'Copy failed, please copy manually',
+        'Mezon Đồng Voucher': 'Mezon Đồng Voucher',
+        'Buy a voucher in any denomination (10.000 – 500.000 đồng) at cobar.vn, then redeem the code below to top up your balance.':
+          'Buy a voucher in any denomination (10.000 – 500.000 đồng) at cobar.vn, then redeem the code below to top up your balance.',
+        'Buy Voucher': 'Buy Voucher',
       },
     },
   },
 })
 
-function SectionHarness(props: {
-  onClaim: (txHash: string) => Promise<boolean>
-}) {
+function SectionHarness() {
   return (
     <I18nextProvider i18n={i18n}>
-      <VoucherSection
-        treasuryAddress='0x1234567890abcdef1234567890abcdef12345678'
-        onClaim={props.onClaim}
-        claiming={false}
-      />
+      <VoucherSection />
     </I18nextProvider>
   )
 }
@@ -73,36 +51,29 @@ afterEach(() => {
 })
 
 describe('VoucherSection', () => {
-  it('renders the six voucher denominations and no selection by default', async () => {
-    render(<SectionHarness onClaim={vi.fn(async () => true)} />)
+  it('links to the cobar.vn voucher store in a new tab', () => {
+    render(<SectionHarness />)
 
-    for (const name of [
-      '10.000 đồng',
-      '20.000 đồng',
-      '50.000 đồng',
-      '100.000 đồng',
-      '200.000 đồng',
-      '500.000 đồng',
-    ]) {
-      expect(screen.getByRole('button', { name })).toBeInTheDocument()
-    }
-    expect(screen.getByText('Select a voucher to top up')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Buy Voucher' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://cobar.vn/products/voucher-mezon-llm-10k-mzd'
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
   })
 
-  it('pins the exact amount after selection and still claims via the hash input', async () => {
-    const user = userEvent.setup()
-    const onClaim = vi.fn(async () => true)
-    render(<SectionHarness onClaim={onClaim} />)
+  it('shows the purchase guidance without any claim or QR surface', () => {
+    render(<SectionHarness />)
 
-    await user.click(screen.getByRole('button', { name: '50.000 đồng' }))
     expect(
       screen.getByText(
-        'Transfer exactly 50.000 đồng (1 đồng = 1 mzđ) from your bound Mezon wallet.'
+        'Buy a voucher in any denomination (10.000 – 500.000 đồng) at cobar.vn, then redeem the code below to top up your balance.'
       )
     ).toBeInTheDocument()
-
-    await user.type(screen.getByLabelText('Transaction hash'), 'a'.repeat(64))
-    await user.click(screen.getByRole('button', { name: 'Claim' }))
-    expect(onClaim).toHaveBeenCalledWith('a'.repeat(64))
+    expect(
+      screen.queryByLabelText('Transaction hash')
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Scan QR/i)).not.toBeInTheDocument()
   })
 })

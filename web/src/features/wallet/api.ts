@@ -22,15 +22,12 @@ import type {
   RedemptionRequest,
   PaymentRequest,
   AmountRequest,
-  AffiliateTransferRequest,
   ApiResponse,
   TopupInfoResponse,
   RedemptionResponse,
   AmountResponse,
   PaymentResponse,
   StripePaymentResponse,
-  AffiliateCodeResponse,
-  AffiliateTransferResponse,
   BillingHistoryResponse,
   CompleteOrderRequest,
   CreemPaymentRequest,
@@ -39,8 +36,6 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
-  MezonPaymentResponse,
-  MezonTransactionsResponse,
 } from './types'
 
 // ============================================================================
@@ -183,43 +178,6 @@ export async function requestWaffoPancakePayment(
   return res.data
 }
 
-/**
- * Claim a Mezon đồng top-up by transaction hash
- */
-export async function requestMezonPayment(
-  txHash: string
-): Promise<MezonPaymentResponse> {
-  const res = await api.post('/api/user/mezon/pay', { tx_hash: txHash }, {
-    skipBusinessError: true,
-  } as Record<string, unknown>)
-  return res.data
-}
-
-/**
- * Get recent Mezon đồng transactions from user's wallet to treasury
- */
-export async function getMezonTransactions(): Promise<MezonTransactionsResponse> {
-  const res = await api.get('/api/user/mezon/transactions')
-  return res.data
-}
-
-/**
- * Get affiliate code
- */
-export async function getAffiliateCode(): Promise<AffiliateCodeResponse> {
-  const res = await api.get('/api/user/aff')
-  return res.data
-}
-
-/**
- * Transfer affiliate quota to balance
- */
-export async function transferAffiliateQuota(
-  request: AffiliateTransferRequest
-): Promise<AffiliateTransferResponse> {
-  const res = await api.post('/api/user/aff_transfer', request)
-  return res.data
-}
 
 /**
  * Get billing history for current user
