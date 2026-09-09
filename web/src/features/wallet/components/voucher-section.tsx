@@ -23,8 +23,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Label } from '@/components/ui/label'
 
-const COBAR_VOUCHER_URL =
-  'https://cobar.vn/products/voucher-mezon-llm-10k-mzd'
+const COBAR_VOUCHER_URL = 'https://cobar.vn/products/voucher-mezon-llm-10k-mzd'
 
 export function VoucherSection() {
   const { t } = useTranslation()
@@ -50,7 +49,9 @@ export function VoucherSection() {
         href={COBAR_VOUCHER_URL}
         target='_blank'
         rel='noopener noreferrer'
-        className={buttonVariants({ variant: 'outline', size: 'sm' }) + ' gap-1.5'}
+        className={
+          buttonVariants({ variant: 'outline', size: 'sm' }) + ' gap-1.5'
+        }
       >
         {t('Buy Voucher')}
         <ExternalLink className='h-3.5 w-3.5' />

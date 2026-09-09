@@ -212,7 +212,6 @@ export function Wallet(props: WalletProps) {
     }
   }
 
-
   // Handle Creem product selection
   const handleCreemProductSelect = (product: CreemProduct) => {
     setSelectedCreemProduct(product)
@@ -320,7 +319,6 @@ export function Wallet(props: WalletProps) {
                 onPurchaseSuccess={fetchUser}
               />
             </div>
-
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

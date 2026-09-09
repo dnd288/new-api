@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createInstance } from 'i18next'
 import { cleanup, render, screen } from '@testing-library/react'
+import { createInstance } from 'i18next'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -71,9 +71,7 @@ describe('VoucherSection', () => {
         'Buy a voucher in any denomination (10.000 – 500.000 đồng) at cobar.vn, then redeem the code below to top up your balance.'
       )
     ).toBeInTheDocument()
-    expect(
-      screen.queryByLabelText('Transaction hash')
-    ).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Transaction hash')).not.toBeInTheDocument()
     expect(screen.queryByText(/Scan QR/i)).not.toBeInTheDocument()
   })
 })

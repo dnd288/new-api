@@ -178,7 +178,6 @@ export async function requestWaffoPancakePayment(
   return res.data
 }
 
-
 /**
  * Get billing history for current user
  */
