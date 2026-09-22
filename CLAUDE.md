@@ -15,3 +15,4 @@ Rules:
 - If the task touches `web/`, also Read `web/AGENTS.md` before editing frontend files.
 - Domain glossary is in `CONTEXT.md` — read it first if a term is ambiguous.
 - Contribution workflow is in `CONTRIBUTING.md`.
+- If the task touches billing as defined under **Billing rules (mandatory read gate)** in `AGENTS.md`, also Read `.agents/rules/billing.md` in full before planning or editing. Tasks outside that definition may skip it.
