@@ -145,17 +145,6 @@ export interface ManageUserQuotaPayload {
   value: number
 }
 
-export interface LoginSession {
-  sid: string
-  current: boolean
-  login_method: string
-  ip: string
-  user_agent: string
-  created_at: number
-  last_active_at: number
-  expires_at: number
-}
-
 // ============================================================================
 // Dialog Types
 // ============================================================================

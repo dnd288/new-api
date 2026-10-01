@@ -787,7 +787,6 @@ export function OverviewDashboard() {
             </CardStaggerContainer>
           )}
 
-
           <SummaryCards />
 
           {showContentPanels && (

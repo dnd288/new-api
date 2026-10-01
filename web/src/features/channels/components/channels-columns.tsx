@@ -60,7 +60,6 @@ import { truncateText } from '@/lib/utils'
 import { getCodexUsage, updateChannelBalance } from '../api'
 import {
   CHANNEL_STATUS_CONFIG,
-  CHANNEL_TYPE_TOP1DATA,
   CHANNEL_TYPE_TASK_PLUGIN,
   CHANNEL_TYPE_VLLM,
   CHANNEL_TYPE_SGLANG,
@@ -356,17 +355,6 @@ export function BalanceCell({ channel }: { channel: Channel }) {
   const withSuffix = (value: string) =>
     tokenSuffix && value !== '-' ? `${value}${tokenSuffix}` : value
 
-  const isTop1Data =
-    channel.type === CHANNEL_TYPE_TOP1DATA ||
-    (channel.base_url ?? '').toLowerCase().match(/top1data|techopenclaw/) !==
-      null
-
-  const formatCreditsShort = (val: number): string =>
-    new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(val) + ' cr'
-
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const balanceFormatOptions = {
     digitsLarge: 2,
@@ -383,9 +371,9 @@ export function BalanceCell({ channel }: { channel: Channel }) {
       showSymbol: layout !== 'card',
     })
   )
-  const remainingFull = isTop1Data
-    ? formatCreditsShort(balance)
-    : withSuffix(formatCurrencyFromUSD(balance, balanceFormatOptions))
+  const remainingFull = withSuffix(
+    formatCurrencyFromUSD(balance, balanceFormatOptions)
+  )
   const usedDisplay =
     usedFull.length > MAX_INLINE_BALANCE_CHARS
       ? withSuffix(
@@ -396,9 +384,8 @@ export function BalanceCell({ channel }: { channel: Channel }) {
           })
         )
       : usedFull
-  const remainingDisplay = isTop1Data
-    ? formatCreditsShort(balance)
-    : remainingFull.length > MAX_INLINE_BALANCE_CHARS
+  const remainingDisplay =
+    remainingFull.length > MAX_INLINE_BALANCE_CHARS
       ? withSuffix(
           formatCurrencyFromUSD(balance, {
             compact: true,
@@ -478,16 +465,13 @@ export function BalanceCell({ channel }: { channel: Channel }) {
     try {
       const response = await updateChannelBalance(channel.id)
       if (response.success && response.balance !== undefined) {
-        const balanceText = isTop1Data
-          ? formatCreditsShort(response.balance)
-          : formatCurrencyFromUSD(response.balance, {
+        toast.success(
+          t('Balance updated: {{balance}}', {
+            balance: formatCurrencyFromUSD(response.balance, {
               digitsLarge: 2,
               digitsSmall: 4,
               abbreviate: false,
-            })
-        toast.success(
-          t('Balance updated: {{balance}}', {
-            balance: balanceText,
+            }),
           })
         )
         void queryClient.invalidateQueries({
@@ -542,25 +526,23 @@ export function BalanceCell({ channel }: { channel: Channel }) {
   return (
     <TooltipProvider>
       <div className='-ml-1.5 flex items-center gap-1'>
-        {!isTop1Data && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <StatusBadge
-                  label={sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
-                  variant='neutral'
-                  size='sm'
-                  copyable={false}
-                  showDot={false}
-                  className='cursor-help'
-                />
-              }
-            />
-            <TooltipContent>
-              <p>{sensitiveVisible ? usedLabel : maskedUsedLabel}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <StatusBadge
+                label={sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
+                variant='neutral'
+                size='sm'
+                copyable={false}
+                showDot={false}
+                className='cursor-help'
+              />
+            }
+          />
+          <TooltipContent>
+            <p>{sensitiveVisible ? usedLabel : maskedUsedLabel}</p>
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger
             render={

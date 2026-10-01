@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
 import type { Table } from '@tanstack/react-table'
-import { Send, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -45,11 +45,9 @@ type DataTableBulkActionsProps = {
 
 export function DataTableBulkActions(props: DataTableBulkActionsProps) {
   const { t } = useTranslation()
-  const { triggerRefresh, setOpen, setCurrentRow } = useRedemptions()
+  const { triggerRefresh } = useRedemptions()
   const [deleteTargets, setDeleteTargets] = useState<Redemption[] | null>(null)
   const selectedRows = props.table.getFilteredSelectedRowModel().rows
-  const singleSelected =
-    selectedRows.length === 1 ? selectedRows[0].original : null
 
   const contentToCopy = useMemo(() => {
     const selectedCodes = selectedRows.map((row) => {
@@ -120,31 +118,6 @@ export function DataTableBulkActions(props: DataTableBulkActionsProps) {
           </TooltipTrigger>
           <TooltipContent>
             {t('Delete selected redemption codes')}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant='outline'
-                size='icon'
-                className='size-8'
-                disabled={!singleSelected}
-                aria-label={t('Send code to order')}
-                onClick={() => {
-                  if (!singleSelected) return
-                  setCurrentRow(singleSelected)
-                  setOpen('send')
-                }}
-              />
-            }
-          >
-            <Send aria-hidden='true' />
-          </TooltipTrigger>
-          <TooltipContent>
-            {singleSelected
-              ? t('Send code to order')
-              : t('Select exactly one code to send')}
           </TooltipContent>
         </Tooltip>
       </BulkActionsToolbar>

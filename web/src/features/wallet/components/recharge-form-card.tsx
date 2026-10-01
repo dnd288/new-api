@@ -513,7 +513,6 @@ export function RechargeFormCard({
           </div>
         )}
 
-
       {/* Redemption Code Section */}
       {redemptionEnabled ? (
         <div className='space-y-2.5 border-t pt-4 sm:space-y-3 sm:pt-6'>

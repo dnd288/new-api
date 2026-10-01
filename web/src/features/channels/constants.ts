@@ -26,7 +26,6 @@ export const CHANNEL_TYPE_OLLAMA = 4
 export const CHANNEL_TYPE_SUB2API = 59
 
 export const CHANNEL_TYPE_NEW_API = 60
-export const CHANNEL_TYPE_TOP1DATA = 64
 
 export const CHANNEL_TYPE_TASK_PLUGIN = 61
 
@@ -95,7 +94,6 @@ export const CHANNEL_TYPES = {
   61: 'Task Plugin',
   62: 'vLLM',
   63: 'SGLang',
-  64: 'Top1Data',
 } as const
 
 export type ChannelProviderPresentation = {
@@ -180,16 +178,13 @@ export const CHANNEL_PROVIDER_PRESENTATION: Partial<
   62: { descriptionKey: 'Connect to self-hosted models served by vLLM' },
   63: { descriptionKey: 'Connect to self-hosted models served by SGLang' },
 } satisfies Record<
-  Exclude<
-    keyof typeof CHANNEL_TYPES,
-    0 | typeof CHANNEL_TYPE_TASK_PLUGIN | typeof CHANNEL_TYPE_TOP1DATA
-  >,
+  Exclude<keyof typeof CHANNEL_TYPES, 0 | typeof CHANNEL_TYPE_TASK_PLUGIN>,
   ChannelProviderPresentation
 >
 
 const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [
   1, 14, 24, 33, 43, 3, 41, 17, 45, 25, 26, 23, 48, 60, 58, 59, 61, 42, 34, 20,
-  4, 62, 63, 64, 40, 27, 15, 46, 18, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 22, 21,
+  4, 62, 40, 27, 15, 46, 18, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 22, 21,
   44, 2, 5, 36, 50, 51, 52, 53, 54, 55, 56,
 ]
 

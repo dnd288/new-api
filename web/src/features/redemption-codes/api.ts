@@ -99,17 +99,6 @@ export async function deleteInvalidRedemptions(): Promise<ApiResponse<number>> {
   return res.data
 }
 
-// Send a redemption code to an order: marks it used and records the order id
-export async function sendRedemption(
-  id: number,
-  orderId: string
-): Promise<ApiResponse<Redemption>> {
-  const res = await api.post(`/api/redemption/${id}/send`, {
-    order_id: orderId,
-  })
-  return res.data
-}
-
 export async function batchDeleteRedemptions(
   ids: number[]
 ): Promise<ApiResponse<number>> {

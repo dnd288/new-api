@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -41,7 +40,6 @@ const (
 	PaymentProviderWaffo        = "waffo"
 	PaymentProviderWaffoPancake = "waffo_pancake"
 	PaymentProviderBalance      = "balance"
-	PaymentProviderMezon        = "mezon"
 )
 
 var (
@@ -57,25 +55,6 @@ func (topUp *TopUp) Insert() error {
 	var err error
 	err = DB.Create(topUp).Error
 	return err
-}
-
-// CompleteMezonTopUp inserts a successful Mezon top-up and credits quota in
-// one transaction. If the credit hits the wallet ceiling, the insert is
-// rolled back so the transaction hash remains claimable.
-func CompleteMezonTopUp(topUp *TopUp, quotaToAdd int) error {
-	if topUp == nil {
-		return errors.New("topup is nil")
-	}
-	if err := DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(topUp).Error; err != nil {
-			return err
-		}
-		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
-	}); err != nil {
-		return err
-	}
-	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, "mezon topup")
-	return nil
 }
 
 func topUpQuotaMaxCurrent(creditedQuota int) (int, error) {
@@ -161,24 +140,6 @@ func GetTopUpByTradeNo(tradeNo string) *TopUp {
 		return nil
 	}
 	return topUp
-}
-
-// GetMezonClaimedHashes returns the set of Mezon transaction hashes that have
-// already been redeemed by a given user. Stored as "mezon:<hash>" in trade_no.
-func GetMezonClaimedHashes(userId int) (map[string]bool, error) {
-	var tradeNos []string
-	err := DB.Model(&TopUp{}).
-		Where("user_id = ? AND trade_no LIKE ?", userId, "mezon:%").
-		Pluck("trade_no", &tradeNos).Error
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]bool, len(tradeNos))
-	for _, tn := range tradeNos {
-		hash := strings.TrimPrefix(tn, "mezon:")
-		result[hash] = true
-	}
-	return result, nil
 }
 
 func UpdatePendingTopUpStatus(tradeNo string, expectedPaymentProvider string, targetStatus string) error {

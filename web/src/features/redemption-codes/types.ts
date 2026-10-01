@@ -33,7 +33,6 @@ export const redemptionSchema = z.object({
   redeemed_time: z.number(),
   expired_time: z.number(), // 0 for never expires
   used_user_id: z.number(),
-  order_id: z.string().optional().default(''),
 })
 
 export type Redemption = z.infer<typeof redemptionSchema>
@@ -84,9 +83,4 @@ export interface RedemptionFormData {
 // Dialog Types
 // ============================================================================
 
-export type RedemptionsDialogType =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'view'
-  | 'send'
+export type RedemptionsDialogType = 'create' | 'update' | 'delete' | 'view'

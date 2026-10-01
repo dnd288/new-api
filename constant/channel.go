@@ -61,7 +61,6 @@ const (
 	ChannelTypeTaskPlugin     = 61
 	ChannelTypeVLLM           = 62
 	ChannelTypeSGLang         = 63
-	ChannelTypeTop1Data       = 64
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -203,7 +202,6 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeTaskPlugin:     "Task Plugin",
 	ChannelTypeVLLM:           "vLLM",
 	ChannelTypeSGLang:         "SGLang",
-	ChannelTypeTop1Data:       "Top1Data",
 }
 
 func GetChannelTypeName(channelType int) string {

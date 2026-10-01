@@ -41,15 +41,20 @@ export const PRICING_KEYS = [
   'billing_setting.billing_mode',
   'billing_setting.billing_expr',
   'billing_setting.plugin_billing_expr',
+  'billing_setting.minimum_charge',
 ] as const
 export type PricingKey = (typeof PRICING_KEYS)[number]
 export type PricingValues = Partial<
   Record<
-    Exclude<PricingKey, 'billing_setting.plugin_billing_expr'>,
+    Exclude<
+      PricingKey,
+      'billing_setting.plugin_billing_expr' | 'billing_setting.minimum_charge'
+    >,
     number | string
   >
 > & {
   'billing_setting.plugin_billing_expr'?: Record<string, string>
+  'billing_setting.minimum_charge'?: boolean
 }
 export type PricingOptions = Record<PricingKey, string>
 
@@ -156,6 +161,7 @@ export function pricingRows(options: PricingOptions): ModelPricingSnapshot[] {
     billingMode: options['billing_setting.billing_mode'],
     billingExpr: options['billing_setting.billing_expr'],
     pluginBillingExpr: options['billing_setting.plugin_billing_expr'],
+    minimumCharge: options['billing_setting.minimum_charge'],
   })
 }
 
@@ -227,6 +233,9 @@ export function pricingFromDraft(data: ModelRatioData): PricingValues {
       data.billingExpr || '',
       data.requestRuleExpr || ''
     )
+  }
+  if (data.minimumCharge !== undefined) {
+    values['billing_setting.minimum_charge'] = data.minimumCharge
   }
   return values
 }
@@ -302,6 +311,15 @@ export function pricingValuesByModel(
       throw new Error(t('Pricing must be a JSON object'))
     }
     for (const [name, value] of Object.entries(map)) {
+      if (key === 'billing_setting.minimum_charge') {
+        if (typeof value !== 'boolean') {
+          throw new Error(t('Invalid pricing value'))
+        }
+        const model = models.get(name) ?? {}
+        model[key] = value
+        models.set(name, model)
+        continue
+      }
       if (typeof value !== 'number' && typeof value !== 'string') {
         throw new Error(t('Invalid pricing value'))
       }
@@ -349,7 +367,8 @@ export function applyPriceSyncSelections(
           .join('') as PricingKey
         if (
           PRICING_KEYS.includes(key) &&
-          key !== 'billing_setting.plugin_billing_expr'
+          key !== 'billing_setting.plugin_billing_expr' &&
+          key !== 'billing_setting.minimum_charge'
         ) {
           next[key] = value
         }

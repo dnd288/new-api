@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { RedemptionsDeleteDialog } from './redemptions-delete-dialog'
 import { RedemptionsMutateDrawer } from './redemptions-mutate-drawer'
 import { useRedemptions } from './redemptions-provider'
-import { RedemptionsSendDialog } from './redemptions-send-dialog'
 
 export function RedemptionsDialogs() {
   const { open, setOpen, currentRow } = useRedemptions()
@@ -33,7 +32,6 @@ export function RedemptionsDialogs() {
         currentRow={isUpdate ? currentRow || undefined : undefined}
       />
       <RedemptionsDeleteDialog />
-      <RedemptionsSendDialog />
     </>
   )
 }

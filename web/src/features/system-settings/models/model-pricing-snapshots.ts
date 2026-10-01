@@ -34,6 +34,7 @@ export type ModelPricingSnapshotInput = {
   billingMode: string
   billingExpr: string
   pluginBillingExpr?: string
+  minimumCharge?: string
 }
 
 export type ModelPricingSnapshot = {
@@ -50,6 +51,7 @@ export type ModelPricingSnapshot = {
   billingMode?: string
   billingExpr?: string
   requestRuleExpr?: string
+  minimumCharge?: boolean
   hasConflict: boolean
 }
 
@@ -167,6 +169,7 @@ export const buildModelSnapshots = ({
   billingMode,
   billingExpr,
   pluginBillingExpr = '{}',
+  minimumCharge = '{}',
 }: ModelPricingSnapshotInput): ModelPricingSnapshot[] => {
   const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
     fallback: {},
@@ -208,6 +211,10 @@ export const buildModelSnapshots = ({
     fallback: {},
     context: 'billing expression',
   })
+  const minimumChargeMap = safeJsonParse<Record<string, boolean>>(
+    minimumCharge,
+    { fallback: {}, context: 'minimum charge flags' }
+  )
 
   const pluginExprMap = safeJsonParse<Record<string, string>>(
     pluginBillingExpr,
@@ -235,6 +242,7 @@ export const buildModelSnapshots = ({
     ...Object.keys(audioCompletionMap),
     ...Object.keys(billingModeMap),
     ...Object.keys(billingExprMap),
+    ...Object.keys(minimumChargeMap),
   ])
 
   return [...modelNames].map((name) => {
@@ -258,6 +266,7 @@ export const buildModelSnapshots = ({
         billingMode: 'tiered_expr',
         billingExpr: pureExpr,
         requestRuleExpr,
+        minimumCharge: minimumChargeMap[name],
         price,
         ratio,
         cacheRatio: cache,
@@ -273,6 +282,7 @@ export const buildModelSnapshots = ({
     return {
       name,
       pluginBillingExpr: pluginExpressionsByModel.get(name),
+      minimumCharge: minimumChargeMap[name],
       price,
       ratio,
       cacheRatio: cache,
@@ -309,6 +319,7 @@ export const getSnapshotSignature = (snapshot?: ModelPricingSnapshot) => {
     billingMode: snapshot.billingMode || 'per-token',
     billingExpr: snapshot.billingExpr || '',
     requestRuleExpr: snapshot.requestRuleExpr || '',
+    minimumCharge: snapshot.minimumCharge,
     pluginBillingExpr: Object.entries(snapshot.pluginBillingExpr ?? {}).sort(
       ([a], [b]) => a.localeCompare(b)
     ),

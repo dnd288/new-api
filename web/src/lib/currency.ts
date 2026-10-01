@@ -350,8 +350,7 @@ function formatCurrencyValue(
     maximumFractionDigits: options.compact ? 1 : digits,
   }).format(adjustedValue)
 
-  // Custom symbols render after the amount (e.g. "100 mzđ")
-  return options.showSymbol ? `${decimal} ${meta.symbol}` : decimal
+  return options.showSymbol ? `${meta.symbol} ${decimal}` : decimal
 }
 
 /**

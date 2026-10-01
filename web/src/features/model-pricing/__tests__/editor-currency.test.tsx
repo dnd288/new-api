@@ -843,7 +843,7 @@ it('keeps time pricing and request rules unchanged when opening the simulator', 
   expect(before?.requestRuleExpr).toBe(rules)
 })
 
-it('converts task additional charges and second, token and credit prices, including whole-column fill', async () => {
+it('converts task base charges and second, token and credit prices, including whole-column fill', async () => {
   const schema: BillingUsageSchema = {
     seconds: { type: 'number', unit: 'second' },
     tokens: { type: 'number', unit: 'token' },

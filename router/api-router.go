@@ -36,7 +36,6 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
-		apiRouter.GET("/status/models", middleware.HeaderNavModulePublicOrUserAuth("pricing"), controller.GetModelStatus)
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
 		{
@@ -45,8 +44,8 @@ func SetApiRouter(router *gin.Engine) {
 		}
 		apiRouter.GET("/rankings", middleware.HeaderNavModuleAuth("rankings"), controller.GetRankings)
 		apiRouter.GET("/verification", middleware.EmailVerificationRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
-		apiRouter.GET("/reset_password", middleware.AuthRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
-		apiRouter.POST("/user/reset", middleware.AuthRateLimit(), anonymousRequestBodyLimit, controller.ResetPassword)
+		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
+		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, controller.ResetPassword)
 		// OAuth routes - specific routes must come before :provider wildcard
 		apiRouter.POST("/oauth/state", middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.TryUserAuth(), anonymousRequestBodyLimit, controller.GenerateOAuthCode)
 		apiRouter.POST("/oauth/email/bind/start", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.UserCriticalRateLimit("account-security"), middleware.EmailVerificationRateLimit(), middleware.DisableCache(), controller.EmailBindStart)
@@ -161,7 +160,6 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
 				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)
 				adminRoute.DELETE("/:id/bindings/:binding_type", controller.AdminClearUserBinding)
-				adminRoute.GET("/:id/sessions", controller.AdminGetLoginSessions)
 				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
@@ -314,7 +312,6 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.GET("/search", controller.SearchRedemptions)
 			redemptionRoute.GET("/:id", controller.GetRedemption)
 			redemptionRoute.POST("/", controller.AddRedemption)
-			redemptionRoute.POST("/:id/send", controller.SendRedemption)
 			redemptionRoute.POST("/batch", controller.DeleteRedemptionBatch)
 			redemptionRoute.PUT("/", controller.UpdateRedemption)
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
