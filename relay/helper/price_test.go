@@ -46,11 +46,24 @@ func TestModelPriceHelperAppliesMinimumChargeToPreConsume(t *testing.T) {
 		UserGroup:       "default",
 		UsingGroup:      "default",
 	}
-	priceData, err := ModelPriceHelper(ctx, info, 1, &types.TokenCountMeta{})
+	// 1000 tokens * ratio 0.002 = 2 quota, floored up to the 10-quota minimum.
+	priceData, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
 
 	require.NoError(t, err)
 	assert.True(t, priceData.MinimumCharge)
 	assert.Equal(t, 10, priceData.QuotaToPreConsume)
+
+	// A zero-charge estimate (sub-quota usage truncates to 0) is never floored.
+	zeroChargeInfo := &relaycommon.RelayInfo{
+		OriginModelName: "minimum-ratio-model",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+	}
+	zeroChargePriceData, err := ModelPriceHelper(ctx, zeroChargeInfo, 1, &types.TokenCountMeta{})
+
+	require.NoError(t, err)
+	assert.True(t, zeroChargePriceData.MinimumCharge)
+	assert.Equal(t, 0, zeroChargePriceData.QuotaToPreConsume)
 }
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
