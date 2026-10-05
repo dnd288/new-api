@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
@@ -199,4 +202,53 @@ func dashboardBearer(header string) (string, bool) {
 		return "", false
 	}
 	return parts[1], true
+}
+
+// AdminIssueUserSession lets a trusted server-side portal act for an end user
+// it has already authenticated (for example through Mezon OAuth) without
+// holding that user's password: it returns a short-lived dashboard access
+// token for the user named in the path. Only common users qualify, so an
+// admin credential can never be turned into another administrator's session.
+func AdminIssueUserSession(c *gin.Context) {
+	setAuthNoStore(c)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	user, err := model.GetUserCache(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if user.Role != common.RoleCommonUser {
+		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionHigherLevel)
+		return
+	}
+	if user.Status != common.UserStatusEnabled {
+		common.ApiErrorI18n(c, i18n.MsgAuthUserBanned)
+		return
+	}
+	bundle, created, err := service.IssuePortalSession(id, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		writeAuthSessionError(c, err)
+		return
+	}
+	if created {
+		recordManageAuditFor(c, id, "user.portal_session", map[string]any{"username": user.Username, "id": id})
+	} else {
+		// Re-issuing a token on an existing portal session is routine refresh
+		// traffic; only opening a session is worth an audit row.
+		markAuditLogged(c)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"access_token":      bundle.AccessToken,
+			"token_type":        bundle.TokenType,
+			"access_expires_at": bundle.AccessExpiresAt,
+			"session":           bundle.Session,
+		},
+	})
 }
