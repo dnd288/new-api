@@ -442,3 +442,69 @@ func TestUserAuthVersionInvalidatesExistingSession(t *testing.T) {
 	_, err = CreateLoginSessionAtAuthVersion(user.Id, identity.UserAuthVersion, "2fa", "127.0.0.1", "test-agent")
 	assert.ErrorIs(t, err, ErrLoginSessionRevoked, "a pending 2FA flow must not survive an auth-version change")
 }
+
+func TestIssuePortalSessionReusesLiveSession(t *testing.T) {
+	useTestSessionSecret(t)
+	user := setupAuthSessionTestDB(t)
+
+	first, created, err := IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.Empty(t, first.RefreshToken, "a portal session must never hand out a refresh token")
+	assert.Equal(t, PortalLoginMethod, first.Session.LoginMethod)
+
+	second, created, err := IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	require.NoError(t, err)
+	assert.False(t, created)
+	assert.Equal(t, first.Session.SID, second.Session.SID)
+
+	identity, err := ParseAccessToken(second.AccessToken)
+	require.NoError(t, err)
+	_, cachedUser, err := ValidateLoginSession(identity)
+	require.NoError(t, err)
+	assert.Equal(t, user.Id, cachedUser.Id)
+
+	count, err := model.CountUserSessionsCreatedSince(user.Id, time.Now().Add(-time.Hour).Unix())
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, count)
+}
+
+func TestIssuePortalSessionOpensNewSessionAfterRevokeOrNearExpiry(t *testing.T) {
+	useTestSessionSecret(t)
+	user := setupAuthSessionTestDB(t)
+
+	first, _, err := IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	require.NoError(t, err)
+	_, err = model.RevokeUserSession(user.Id, first.Session.SID, "test")
+	require.NoError(t, err)
+
+	second, created, err := IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.NotEqual(t, first.Session.SID, second.Session.SID)
+
+	// A session ending before the access token would is not reused.
+	require.NoError(t, model.DB.Model(&model.UserSession{}).Where("sid = ?", second.Session.SID).
+		Update("expires_at", time.Now().Add(AccessTokenTTL/2).Unix()).Error)
+	third, created, err := IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.NotEqual(t, second.Session.SID, third.Session.SID)
+}
+
+func TestIssuePortalSessionIgnoresInteractiveSessionsAndDisabledUsers(t *testing.T) {
+	useTestSessionSecret(t)
+	user := setupAuthSessionTestDB(t)
+
+	interactive, err := CreateLoginSession(user.Id, "password", "127.0.0.1", "browser")
+	require.NoError(t, err)
+	portal, created, err := IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.NotEqual(t, interactive.Session.SID, portal.Session.SID)
+
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", user.Id).
+		Update("status", common.UserStatusDisabled).Error)
+	_, _, err = IssuePortalSession(user.Id, "127.0.0.1", "portal")
+	assert.ErrorIs(t, err, ErrLoginSessionInvalid)
+}

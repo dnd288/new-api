@@ -53,6 +53,44 @@ func CreateLoginSession(userID int, loginMethod, ip, userAgent string) (*AuthBun
 	return createLoginSession(userID, 0, loginMethod, ip, userAgent)
 }
 
+// PortalLoginMethod marks login sessions minted for a user by a trusted
+// server-side portal through the admin API instead of an interactive login.
+const PortalLoginMethod = "portal"
+
+// IssuePortalSession returns a dashboard access token for userID without a
+// password. It reuses the user's live portal session so a portal refreshing
+// short-lived access tokens neither piles up sessions nor burns the issuance
+// limit; only when none is left does it open a new one. created reports which.
+// The bundle never carries a refresh token: the portal calls again instead.
+func IssuePortalSession(userID int, ip, userAgent string) (bundle *AuthBundle, created bool, err error) {
+	user, err := model.GetUserCache(userID)
+	if err != nil {
+		return nil, false, err
+	}
+	if user.Status != common.UserStatusEnabled || user.AuthVersion <= 0 {
+		return nil, false, ErrLoginSessionInvalid
+	}
+	// The access token must not outlive the session it is bound to.
+	validUntil := time.Now().Add(AccessTokenTTL).Unix()
+	reusable, err := model.FindReusableUserSession(userID, user.AuthVersion, PortalLoginMethod, validUntil)
+	if err != nil {
+		return nil, false, err
+	}
+	if reusable != nil {
+		// The cached read honours revocation tombstones the row may not show yet.
+		if session, cacheErr := model.GetUserSessionCached(reusable.SID); cacheErr == nil {
+			bundle, err = issueAuthBundle(session, "", true)
+			return bundle, false, err
+		}
+	}
+	bundle, err = createLoginSession(userID, 0, PortalLoginMethod, ip, userAgent)
+	if err != nil {
+		return nil, false, err
+	}
+	bundle.RefreshToken = ""
+	return bundle, true, nil
+}
+
 func CreateLoginSessionAtAuthVersion(userID int, expectedAuthVersion int64, loginMethod, ip, userAgent string) (*AuthBundle, error) {
 	if expectedAuthVersion <= 0 {
 		return nil, ErrLoginSessionInvalid

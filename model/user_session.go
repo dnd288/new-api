@@ -870,3 +870,27 @@ func deleteRevokedUserSessionsBefore(revokedBefore, issuanceCutoff int64) error 
 		}
 	}
 }
+
+// FindReusableUserSession returns the longest-lived active session the user
+// opened with loginMethod at the current auth version that is still valid at
+// validUntil, or nil when there is none.
+func FindReusableUserSession(userID int, authVersion int64, loginMethod string, validUntil int64) (*UserSession, error) {
+	if userID <= 0 || authVersion <= 0 || loginMethod == "" {
+		return nil, ErrUserSessionInvalid
+	}
+	var sessions []UserSession
+	if err := DB.Where(
+		"user_id = ? AND user_auth_version = ? AND status = ? AND revoked_at = 0 AND login_method = ? AND expires_at > ?",
+		userID,
+		authVersion,
+		UserSessionStatusActive,
+		loginMethod,
+		validUntil,
+	).Order("expires_at DESC").Limit(1).Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	if len(sessions) == 0 {
+		return nil, nil
+	}
+	return &sessions[0], nil
+}

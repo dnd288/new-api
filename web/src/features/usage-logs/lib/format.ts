@@ -486,6 +486,7 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'user.passkey_delete': 'Deleted a passkey',
   'user.topup_complete': 'Completed top-up order for the user',
   'user.reset_passkey': 'Reset the user passkey',
+  'user.portal_session': 'Opened a portal session for user {{username}} (ID: {{id}})',
   'user.oauth_unbind': 'Removed an OAuth binding for the user',
   // System settings
   'option.update': 'Updated system setting {{key}}',

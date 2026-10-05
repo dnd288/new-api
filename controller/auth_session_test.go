@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -152,4 +154,65 @@ func TestSessionLimitDoesNotRecordRejectedLoginAsSuccessful(t *testing.T) {
 	var stored model.User
 	require.NoError(t, db.First(&stored, user.Id).Error)
 	assert.Equal(t, previousLastLoginAt, stored.LastLoginAt)
+}
+
+func TestAdminIssueUserSessionOnlyServesEnabledCommonUsers(t *testing.T) {
+	previousDB := model.DB
+	previousLogDB := model.LOG_DB
+	previousRedis := common.RedisEnabled
+	previousSecret := common.SessionSecret
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Log{}))
+	model.DB = db
+	model.LOG_DB = db
+	common.RedisEnabled = false
+	common.SessionSecret = "admin-issue-user-session-test-secret"
+	t.Cleanup(func() {
+		model.DB = previousDB
+		model.LOG_DB = previousLogDB
+		common.RedisEnabled = previousRedis
+		common.SessionSecret = previousSecret
+	})
+
+	newUser := func(name string, role, status int) *model.User {
+		user := &model.User{
+			Username: name, Password: "unused", Role: role, AffCode: name,
+			Status: status, Group: "default", AuthVersion: 1,
+		}
+		require.NoError(t, db.Create(user).Error)
+		return user
+	}
+	commonUser := newUser("portal-common", common.RoleCommonUser, common.UserStatusEnabled)
+	admin := newUser("portal-admin", common.RoleAdminUser, common.UserStatusEnabled)
+	disabled := newUser("portal-disabled", common.RoleCommonUser, common.UserStatusDisabled)
+
+	issue := func(id int) (int, map[string]any) {
+		gin.SetMode(gin.TestMode)
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/user/"+strconv.Itoa(id)+"/session", nil)
+		c.Params = gin.Params{{Key: "id", Value: strconv.Itoa(id)}}
+		c.Set("id", 9999)
+		c.Set("role", common.RoleRootUser)
+		AdminIssueUserSession(c)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+		return recorder.Code, body
+	}
+
+	code, body := issue(commonUser.Id)
+	assert.Equal(t, http.StatusOK, code)
+	require.Equal(t, true, body["success"], body)
+	data := body["data"].(map[string]any)
+	assert.NotEmpty(t, data["access_token"])
+	assert.Positive(t, data["access_expires_at"])
+
+	for _, id := range []int{admin.Id, disabled.Id, 0} {
+		_, body = issue(id)
+		assert.Equal(t, false, body["success"], "user %d must not get a portal session", id)
+	}
+	var sessions int64
+	require.NoError(t, db.Model(&model.UserSession{}).Count(&sessions).Error)
+	assert.EqualValues(t, 1, sessions)
 }
