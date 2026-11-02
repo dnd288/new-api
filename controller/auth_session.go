@@ -2,7 +2,6 @@ package controller
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -173,7 +172,7 @@ func writeAuthSessionError(c *gin.Context, err error) {
 		// The response body only carries the generic AUTH_INTERNAL_ERROR
 		// code; without this log the underlying Redis/database/session
 		// failure is indistinguishable from the client side.
-		logger.LogError(c.Request.Context(), fmt.Sprintf("auth session internal error (%s %s): %v", c.Request.Method, c.Request.URL.Path, err))
+		logger.LogError(c.Request.Context(), common.LogText("auth session internal error (%s %s): %v", c.Request.Method, c.Request.URL.Path, err))
 	}
 	c.JSON(status, gin.H{"success": false, "code": code, "message": http.StatusText(status)})
 }
@@ -213,7 +212,7 @@ func AdminIssueUserSession(c *gin.Context) {
 	setAuthNoStore(c)
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		common.ApiErrorMsg(c, "invalid parameters")
 		return
 	}
 	user, err := model.GetUserCache(id)
@@ -222,7 +221,7 @@ func AdminIssueUserSession(c *gin.Context) {
 		return
 	}
 	if user.Role != common.RoleCommonUser {
-		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionHigherLevel)
+		common.ApiErrorMsg(c, "no permission to issue a session for this user")
 		return
 	}
 	if user.Status != common.UserStatusEnabled {
