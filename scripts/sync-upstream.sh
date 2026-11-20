@@ -64,6 +64,17 @@ if [ -n "$CONFLICTS" ]; then
 fi
 
 step "Merge upstream/main"
+# Use the repo owner identity when no git identity is configured
+export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-$(git config user.name || true)}"
+export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config user.email || true)}"
+export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-$GIT_AUTHOR_NAME}"
+export GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-$GIT_AUTHOR_EMAIL}"
+if [ -z "${GIT_AUTHOR_NAME:-}" ] || [ -z "${GIT_AUTHOR_EMAIL:-}" ]; then
+  export GIT_AUTHOR_NAME="Duong Nguyen Dai"
+  export GIT_AUTHOR_EMAIL="hello@mrdnd.dev"
+  export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+  export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+fi
 git merge --no-ff "$UPSTREAM_HEAD" -m "Merge upstream/main into main (sync $(date '+%b %Y'))"
 
 step "Verify: frontend build"
