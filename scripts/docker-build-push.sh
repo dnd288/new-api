@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 IMAGE="${IMAGE:-registry.mrdnd.dev/new-api}"
-DATE_TAG="${DATE_TAG:-$(date +%Y%m%d)}"
+DATE_TAG="${DATE_TAG:-$(date +%Y-%m-%d)}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 PUSH="${PUSH:-true}"
 
@@ -19,7 +19,7 @@ Builds Docker image tags:
 
 Defaults:
   IMAGE=registry.mrdnd.dev/new-api
-  DATE_TAG=$(date +%Y%m%d)
+  DATE_TAG=$(date +%Y-%m-%d)
   PLATFORMS=linux/amd64
   PUSH=true
 
@@ -57,8 +57,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-if ! [[ "$DATE_TAG" =~ ^[0-9]{8}$ ]]; then
-  printf 'DATE_TAG must use yyyyMMdd, got: %s\n' "$DATE_TAG" >&2
+if ! [[ "$DATE_TAG" =~ ^[0-9]{8}$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  printf 'DATE_TAG must use yyyyMMdd or yyyy-mm-dd, got: %s\n' "$DATE_TAG" >&2
   exit 2
 fi
 

@@ -14,8 +14,8 @@ Usage: $0 [--no-push] [--no-docker]
 
 Syncs upstream QuantumNous/new-api main into this fork's main:
   1. git fetch upstream main
-  2. merge upstream/main (conflicts are handed to a coding agent: omp/claude/opencode,
-     override with SYNC_AGENT_CMD; unresolved leftovers abort with exit 3)
+  2. merge upstream/main; on conflict you pick the resolving agent (omp/claude/opencode)
+     or preset it with SYNC_AGENT_CMD; unresolved leftovers abort with exit 3
   3. verify: web build, go build, go test, relaykit/tokenkit builds
   4. commit the merge and push origin main
   5. build and push docker image (skipped with --no-docker)
@@ -32,7 +32,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --no-push) PUSH=false; shift ;;
     --no-docker) DOCKER=false; shift ;;
-    -h|--help) usage; exit 0 ;;
+    -h|--help|-help) usage; exit 0 ;;
     *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
@@ -79,17 +79,26 @@ if [ -n "$CONFLICTS" ]; then
 
   AGENT="${SYNC_AGENT_CMD:-}"
   if [ -z "$AGENT" ]; then
-    if command -v omp >/dev/null 2>&1; then
-      AGENT="omp -p"
-    elif command -v claude >/dev/null 2>&1; then
-      AGENT="claude -p"
-    elif command -v opencode >/dev/null 2>&1; then
-      AGENT="opencode run"
+    if [ -t 0 ]; then
+      printf 'Select coding agent to resolve conflicts:\n'
+      printf '  1) omp\n'
+      printf '  2) claude\n'
+      printf '  3) opencode\n'
+      read -r -p "Choice [1-3, default 1]: " AGENT_CHOICE
+      case "${AGENT_CHOICE:-1}" in
+        1) AGENT="omp -p" ;;
+        2) AGENT="claude -p" ;;
+        3) AGENT="opencode run" ;;
+        *) printf 'Invalid choice: %s\n' "$AGENT_CHOICE" >&2; exit 3 ;;
+      esac
     else
-      printf 'No agent CLI found (omp/claude/opencode). Set SYNC_AGENT_CMD or resolve manually.\n' >&2
+      printf 'Conflicts need a coding agent but no terminal to choose from.\n' >&2
+      printf 'Set SYNC_AGENT_CMD="omp -p" (or claude/opencode) and rerun.\n' >&2
       exit 3
     fi
   fi
+  AGENT_BIN="${AGENT%% *}"
+  command -v "$AGENT_BIN" >/dev/null 2>&1 || { printf 'Selected agent not found: %s\n' "$AGENT_BIN" >&2; exit 3; }
   printf 'Using agent: %s\n' "$AGENT"
 
   git merge --no-ff --no-commit "$UPSTREAM_HEAD" || true
