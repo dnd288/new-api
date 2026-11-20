@@ -14,7 +14,8 @@ Usage: $0 [--no-push] [--no-docker]
 
 Syncs upstream QuantumNous/new-api main into this fork's main:
   1. git fetch upstream main
-  2. merge upstream/main (fails and leaves the merge open if conflicts need manual resolution)
+  2. merge upstream/main (conflicts are handed to a coding agent: omp/claude/opencode,
+     override with SYNC_AGENT_CMD; unresolved leftovers abort with exit 3)
   3. verify: web build, go build, go test, relaykit/tokenkit builds
   4. commit the merge and push origin main
   5. build and push docker image (skipped with --no-docker)
@@ -55,13 +56,8 @@ if [ "$UPSTREAM_HEAD" = "$LOCAL_HEAD" ]; then
   exit 0
 fi
 
-step "Dry-run merge to detect conflicts"
+step "Detect conflicts"
 CONFLICTS="$(git merge-tree --write-tree --name-only main "$UPSTREAM_HEAD" 2>&1 | tail -n +2 || true)"
-if [ -n "$CONFLICTS" ]; then
-  printf 'Merge conflicts detected:\n%s\n' "$CONFLICTS"
-  printf 'Resolve them manually, then rerun this script.\n' >&2
-  exit 3
-fi
 
 step "Merge upstream/main"
 # Use the repo owner identity when no git identity is configured
@@ -75,7 +71,70 @@ if [ -z "${GIT_AUTHOR_NAME:-}" ] || [ -z "${GIT_AUTHOR_EMAIL:-}" ]; then
   export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
   export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 fi
-git merge --no-ff "$UPSTREAM_HEAD" -m "Merge upstream/main into main (sync $(date '+%b %Y'))"
+
+MERGE_MSG="Merge upstream/main into main (sync $(date '+%b %Y'))"
+if [ -n "$CONFLICTS" ]; then
+  step "Conflicts detected — delegating to coding agent"
+  printf '%s\n' "$CONFLICTS"
+
+  AGENT="${SYNC_AGENT_CMD:-}"
+  if [ -z "$AGENT" ]; then
+    if command -v omp >/dev/null 2>&1; then
+      AGENT="omp -p"
+    elif command -v claude >/dev/null 2>&1; then
+      AGENT="claude -p"
+    elif command -v opencode >/dev/null 2>&1; then
+      AGENT="opencode run"
+    else
+      printf 'No agent CLI found (omp/claude/opencode). Set SYNC_AGENT_CMD or resolve manually.\n' >&2
+      exit 3
+    fi
+  fi
+  printf 'Using agent: %s\n' "$AGENT"
+
+  git merge --no-ff --no-commit "$UPSTREAM_HEAD" || true
+  if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    printf 'Merge did not start; aborting.\n' >&2
+    exit 3
+  fi
+
+  UNMERGED="$(git diff --name-only --diff-filter=U)"
+  PROMPT="You are resolving a git merge in progress in $(pwd).
+Context: merging upstream QuantumNous/new-api main into the dnd288/new-api fork.
+Conflicted files:
+$UNMERGED
+
+Rules:
+- Overlapping code/config lines: prefer the UPSTREAM side unless the block is fork-specific content that exists only in this fork (fork-added sections, custom settings, custom registry URLs, fork identity).
+- NEVER remove fork-only sections, files, identifiers, or branding; never edit files beyond the conflict resolution.
+- No credentials in code. Keep .go files gofmt-clean. Keep i18n keys consistent in all locale files.
+- Resolve the conflict markers in every listed file, then run: git add <each resolved file>.
+- Do NOT run git commit, git rebase, git reset, or git push.
+
+When done, print a short resolution summary per file."
+
+  if ! $AGENT "$PROMPT"; then
+    printf 'Agent failed to resolve conflicts. Merge is still in progress; resolve manually then: git commit --no-edit\n' >&2
+    exit 3
+  fi
+
+  REMAINING="$(git diff --name-only --diff-filter=U)"
+  if [ -n "$REMAINING" ]; then
+    printf 'Agent left unresolved files:\n%s\nResolve manually then: git commit --no-edit\n' "$REMAINING" >&2
+    exit 3
+  fi
+
+  if ! git diff --cached --check >/dev/null 2>&1; then
+    printf 'Agent staged content still containing conflict markers:\n' >&2
+    git diff --cached --check >&2 || true
+    printf 'Resolve manually then: git commit --no-edit\n' >&2
+    exit 3
+  fi
+
+  git commit --no-edit -m "$MERGE_MSG"
+else
+  git merge --no-ff "$UPSTREAM_HEAD" -m "$MERGE_MSG"
+fi
 
 step "Verify: frontend build"
 (cd web && bun install --frozen-lockfile && bun run build)
